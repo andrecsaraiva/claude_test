@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>AR Try-On — Parede</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: #0d0d0f; font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color: #fff; overflow: hidden; }
+
+  /* ---- Tela inicial / status ---- */
+  #intro {
+    position: fixed; inset: 0; z-index: 30;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 32px; gap: 18px;
+    background: radial-gradient(circle at 50% 30%, #1c1c22, #0d0d0f);
+  }
+  #intro h1 { font-size: 22px; font-weight: 650; }
+  #intro p { font-size: 14px; line-height: 1.5; color: #a8a8b0; max-width: 320px; }
+  #startBtn {
+    margin-top: 8px; padding: 15px 34px; font-size: 16px; font-weight: 600;
+    border: none; border-radius: 100px; background: #f5f3ee; color: #16161a;
+    cursor: pointer;
+  }
+  #startBtn:active { transform: scale(0.97); }
+  #unsupported { display: none; color: #ff8a80; font-size: 13px; max-width: 320px; }
+
+  /* ---- HUD durante o AR (dom-overlay) ---- */
+  #hud { position: fixed; inset: 0; z-index: 20; display: none; pointer-events: none; }
+  #status {
+    position: absolute; top: env(safe-area-inset-top, 14px); left: 50%;
+    transform: translateX(-50%); margin-top: 14px;
+    background: rgba(0,0,0,0.62); backdrop-filter: blur(8px);
+    padding: 9px 18px; border-radius: 100px; font-size: 13px; white-space: nowrap;
+  }
+  #bottomBar {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 16px 16px calc(env(safe-area-inset-bottom, 16px) + 16px);
+    display: flex; gap: 10px; justify-content: center; pointer-events: auto;
+  }
+  .pill {
+    padding: 13px 20px; font-size: 14px; font-weight: 600; border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.18); background: rgba(20,20,24,0.78);
+    backdrop-filter: blur(8px); color: #fff; cursor: pointer;
+  }
+  .pill:active { transform: scale(0.96); }
+  .pill.hidden { display: none; }
+  #exitBtn {
+    position: absolute; top: env(safe-area-inset-top, 14px); right: 14px; margin-top: 14px;
+    width: 38px; height: 38px; border-radius: 50%; pointer-events: auto;
+    background: rgba(0,0,0,0.62); border: none; color: #fff; font-size: 18px; cursor: pointer;
+  }
+  #toast {
+    position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 100px;
+    font-size: 12px; opacity: 0; transition: opacity .25s; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div id="intro">
+  <h1>Try-On de Parede</h1>
+  <p>Aponte a câmera para a <b>parede</b> onde quer ver o quadro. Mova o celular devagar para o AR reconhecer a superfície, depois toque para fixar.</p>
+  <button id="startBtn">Iniciar câmera</button>
+  <p id="unsupported">⚠️ Este aparelho/navegador não suporta WebXR AR.<br>Use o <b>Google Chrome</b> num Android com ARCore.</p>
+</div>
+
+<div id="hud">
+  <div id="status">Iniciando…</div>
+  <button id="exitBtn">✕</button>
+  <div id="toast"></div>
+  <div id="bottomBar">
+    <button class="pill hidden" id="resetBtn">Reposicionar</button>
+  </div>
+</div>
+
+<!-- three.js + loaders via CDN (modulos ES) -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ===================== CONFIG =====================
+// URL do GLB do quadro. Pode ser qualquer GLB: o codigo mede e adapta
+// orientacao/origem automaticamente. Veja MODEL_* abaixo p/ ajustes.
+const MODEL_URL  = './poster.glb';
+
+// --- Escala ---
+// Multiplicador aplicado ao GLB.
+// IMPORTANTE: o exportador glTF do Blender SEMPRE grava em metros, mesmo
+// que a Unit da cena esteja em cm. Este GLB ja veio em metros
+// (bbox medido = 0.56 x 0.86 m), portanto a escala correta e 1.0.
+// Use 0.01 apenas se algum dia um GLB vier realmente em centimetros.
+const MODEL_SCALE = 1.0;
+
+// --- Tamanho real forcado (opcional) ---
+// Se quiser que o quadro tenha um tamanho fisico exato independente do GLB,
+// preencha em METROS. Deixe null para usar o tamanho nativo do modelo.
+// O GLB enviado ja mede 0.56 x 0.86 m, entao null = tamanho correto.
+//   ex.: { width: 0.56, height: 0.86 }
+const MODEL_REAL_SIZE = null;
+
+// Auto-recentrar a origem do modelo no centro do bounding box.
+// Resolve GLBs exportados com a origem num canto. Quase sempre true.
+// (Neste GLB a origem ja esta no centro, mas manter true nao atrapalha.)
+const MODEL_AUTOCENTER = true;
+
+// --- Tracking ---
+const WALL_OFFSET = 0.012;   // distancia (m) do quadro p/ fora da parede (evita z-fighting)
+// Quao "vertical" um plano precisa ser p/ contar como parede.
+// 1 = perfeitamente vertical. 0.82 ~= ate ~35 graus de inclinacao tolerada.
+const VERTICAL_DOT_MIN = 0.82;
+// ==================================================
+
+const statusEl = document.getElementById('status');
+const introEl  = document.getElementById('intro');
+const hudEl    = document.getElementById('hud');
+const toastEl  = document.getElementById('toast');
+const startBtn = document.getElementById('startBtn');
+const exitBtn  = document.getElementById('exitBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+let renderer, scene, camera;
+let reticle, sizePreview, posterModel, posterPlaced = false;
+let xrSession = null, xrRefSpace = null, viewerSpace = null;
+let hitTestSource = null;
+let modelTemplate = null;     // GLB carregado, clonado ao fixar
+let toastTimer = null;
+
+function setStatus(t){ statusEl.textContent = t; }
+function toast(t){
+  toastEl.textContent = t; toastEl.style.opacity = 1;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ toastEl.style.opacity = 0; }, 2200);
+}
+
+// ---- checagem de suporte ----
+async function checkSupport(){
+  if (!('xr' in navigator)) return false;
+  try { return await navigator.xr.isSessionSupported('immersive-ar'); }
+  catch(e){ return false; }
+}
+
+checkSupport().then(ok => {
+  if (!ok){
+    startBtn.style.display = 'none';
+    document.getElementById('unsupported').style.display = 'block';
+  }
+});
+
+// dimensoes finais do quadro (m), preenchidas apos normalizar o GLB
+let posterSize = { width: 0.6, height: 0.9, depth: 0.02 };
+
+// ---- carrega o GLB e o NORMALIZA para a convencao da parede ----
+// Convencao alvo: quadro no plano XY, face frontal apontando para +Z,
+// origem no centro, escala em metros.
+// O codigo detecta sozinho o eixo "fino" (profundidade) do quadro e o
+// rotaciona para +Z, recentra a origem e aplica escala. Funciona com
+// GLBs exportados em qualquer orientacao (Blender, etc.).
+function preloadModel(){
+  return new Promise((resolve, reject)=>{
+    new GLTFLoader().load(MODEL_URL,
+      gltf => {
+        try {
+          modelTemplate = normalizeModel(gltf.scene);
+          resolve();
+        } catch(e){ reject(e); }
+      },
+      undefined,
+      err => reject(err)
+    );
+  });
+}
+
+function normalizeModel(root){
+  // 1) mede o bounding box bruto do GLB
+  let box = new THREE.Box3().setFromObject(root);
+  let size = new THREE.Vector3(); box.getSize(size);
+  let center = new THREE.Vector3(); box.getCenter(center);
+
+  // 2) detecta o eixo "fino" -> e a profundidade do quadro
+  const dims = [size.x, size.y, size.z];
+  const thinAxis = dims.indexOf(Math.min(...dims)); // 0=x, 1=y, 2=z
+
+  // 3) wrapper que recentra a origem no centro do bbox
+  const centered = new THREE.Group();
+  if (MODEL_AUTOCENTER) root.position.sub(center);
+  centered.add(root);
+
+  // 4) rotaciona para que o eixo fino vire +Z (profundidade -> frente)
+  if (thinAxis === 0)       centered.rotation.y =  Math.PI / 2;  // X fino -> Z
+  else if (thinAxis === 1)  centered.rotation.x = -Math.PI / 2;  // Y fino -> Z
+  // thinAxis === 2: ja esta com a profundidade em Z, nada a fazer
+
+  // 5) aplica escala (cm->m etc.) e mede de novo ja orientado
+  const scaled = new THREE.Group();
+  centered.scale.setScalar(MODEL_SCALE);
+  scaled.add(centered);
+
+  let box2 = new THREE.Box3().setFromObject(scaled);
+  let size2 = new THREE.Vector3(); box2.getSize(size2);
+  // agora size2.x = largura, size2.y = altura, size2.z = profundidade
+
+  // 6) tamanho real forcado (opcional): reescala XY p/ medidas exatas
+  if (MODEL_REAL_SIZE && size2.x > 0 && size2.y > 0){
+    const fx = MODEL_REAL_SIZE.width  / size2.x;
+    const fy = MODEL_REAL_SIZE.height / size2.y;
+    // escala uniforme media p/ nao distorcer; XY dominam o resultado
+    centered.scale.multiplyScalar((fx + fy) / 2);
+    box2 = new THREE.Box3().setFromObject(scaled);
+    box2.getSize(size2);
+  }
+
+  posterSize = { width: size2.x, height: size2.y, depth: size2.z };
+  console.log('[AR] quadro normalizado (m):', posterSize,
+              ' eixo fino detectado:', ['X','Y','Z'][thinAxis]);
+  return scaled;
+}
+
+// ---- inicia a sessao WebXR ----
+startBtn.addEventListener('click', async ()=>{
+  setStatus('Carregando modelo…');
+  introEl.style.display = 'none';
+  hudEl.style.display = 'block';
+  try { await preloadModel(); }
+  catch(e){
+    introEl.style.display = 'flex'; hudEl.style.display = 'none';
+    document.getElementById('unsupported').style.display = 'block';
+    document.getElementById('unsupported').textContent = 'Falha ao carregar o modelo 3D (' + MODEL_URL + ').';
+    return;
+  }
+  startAR();
+});
+
+async function startAR(){
+  initThree();
+  refreshSizePreview();  // agora posterSize ja reflete o GLB carregado
+  try {
+    xrSession = await navigator.xr.requestSession('immersive-ar', {
+      requiredFeatures: ['hit-test'],
+      optionalFeatures: ['dom-overlay', 'anchors', 'light-estimation'],
+      domOverlay: { root: hudEl }
+    });
+  } catch(e){
+    setStatus('Não foi possível abrir a câmera AR.');
+    introEl.style.display = 'flex'; hudEl.style.display = 'none';
+    return;
+  }
+
+  renderer.xr.setReferenceSpaceType('local');
+  await renderer.xr.setSession(xrSession);
+
+  xrRefSpace  = await xrSession.requestReferenceSpace('local');
+  viewerSpace = await xrSession.requestReferenceSpace('viewer');
+
+  // hit-test a partir do "viewer" = centro da tela. Pegamos resultados
+  // ao vivo a cada frame e filtramos os que apontam para parede.
+  hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
+
+  xrSession.addEventListener('end', onSessionEnd);
+  xrSession.addEventListener('select', onSelect);   // toque na tela
+
+  setStatus('Procurando parede… mova o celular devagar');
+  renderer.setAnimationLoop(onXRFrame);
+}
+
+function onSessionEnd(){
+  renderer.setAnimationLoop(null);
+  if (hitTestSource){ hitTestSource.cancel?.(); hitTestSource = null; }
+  xrSession = null;
+  hudEl.style.display = 'none';
+  introEl.style.display = 'flex';
+  posterPlaced = false;
+  resetBtn.classList.add('hidden');
+}
+
+exitBtn.addEventListener('click', ()=> xrSession && xrSession.end());
+
+resetBtn.addEventListener('click', ()=>{
+  if (posterModel){ scene.remove(posterModel); posterModel = null; }
+  posterPlaced = false;
+  reticle.visible = false;
+  resetBtn.classList.add('hidden');
+  setStatus('Procurando parede… mova o celular devagar');
+});
+
+// ---- three.js setup ----
+function initThree(){
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.01, 30);
+
+  renderer = new THREE.WebGLRenderer({ alpha:true, antialias:true });
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.xr.enabled = true;
+  document.body.appendChild(renderer.domElement);
+  renderer.domElement.style.position = 'fixed';
+  renderer.domElement.style.inset = '0';
+  renderer.domElement.style.zIndex = '10';
+
+  // luz: ambiente + direcional. (light-estimation pode refinar depois.)
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 1.6));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+  dir.position.set(0.5, 1, 1);
+  scene.add(dir);
+
+  // ---- reticle: mira que gruda na parede ----
+  reticle = makeReticle();
+  reticle.visible = false;
+  reticle.matrixAutoUpdate = false;
+  scene.add(reticle);
+
+  // contorno em tamanho real do quadro (preview na parede antes de fixar)
+  sizePreview = makeSizePreview();
+  sizePreview.visible = false;
+  sizePreview.matrixAutoUpdate = false;
+  scene.add(sizePreview);
+
+  addEventListener('resize', ()=>{
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+}
+
+// mira em anel + cruz, deitada no plano da parede
+function makeReticle(){
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.045, 0.055, 40),
+    new THREE.MeshBasicMaterial({ color: 0x7CFFB2, side: THREE.DoubleSide,
+      transparent:true, opacity:0.95 })
+  );
+  const dot = new THREE.Mesh(
+    new THREE.CircleGeometry(0.006, 20),
+    new THREE.MeshBasicMaterial({ color: 0x7CFFB2 })
+  );
+  g.add(ring, dot);
+  return g;
+}
+
+// contorno retangular do tamanho real do quadro (preview antes de fixar)
+function makeSizePreview(){
+  const w = posterSize.width  / 2;
+  const h = posterSize.height / 2;
+  const pts = [
+    new THREE.Vector3(-w,-h,0), new THREE.Vector3( w,-h,0),
+    new THREE.Vector3( w, h,0), new THREE.Vector3(-w, h,0),
+    new THREE.Vector3(-w,-h,0)
+  ];
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({
+    color: 0x7CFFB2, transparent:true, opacity:0.9 }));
+  return line;
+}
+
+// recria o preview quando ja sabemos o tamanho real do GLB
+function refreshSizePreview(){
+  if (!sizePreview) return;
+  scene.remove(sizePreview);
+  sizePreview = makeSizePreview();
+  sizePreview.visible = false;
+  sizePreview.matrixAutoUpdate = false;
+  scene.add(sizePreview);
+}
+
+// ---- helpers de geometria ----
+const _m = new THREE.Matrix4();
+const _q = new THREE.Quaternion();
+const _p = new THREE.Vector3();
+const _s = new THREE.Vector3();
+const _normal = new THREE.Vector3();
+const UP = new THREE.Vector3(0,1,0);
+
+/**
+ * Dado o pose de um hit-test, extrai a normal da superficie.
+ * No WebXR a orientacao do hit-test result tem o +Y na normal do plano.
+ * Retorna a normal em world-space.
+ */
+function surfaceNormalFromPose(matrix){
+  matrix.decompose(_p, _q, _s);
+  _normal.set(0,1,0).applyQuaternion(_q).normalize();
+  return _normal;
+}
+
+/** true se a superficie for aproximadamente vertical (parede). */
+function isWall(normal){
+  // parede => normal quase horizontal => componente Y pequeno
+  return Math.abs(normal.y) < (1 - VERTICAL_DOT_MIN);
+}
+
+/**
+ * Constroi a matriz de pose do quadro: posicao no ponto do hit,
+ * empurrada WALL_OFFSET para fora da parede, e rotacionada para que
+ * a FRENTE do quadro (+Z local) aponte para fora da parede.
+ */
+function poseOnWall(hitMatrix){
+  hitMatrix.decompose(_p, _q, _s);
+  const n = new THREE.Vector3(0,1,0).applyQuaternion(_q).normalize(); // normal da parede
+
+  // posicao = ponto do hit + offset ao longo da normal
+  const pos = _p.clone().addScaledVector(n, WALL_OFFSET);
+
+  // queremos o +Z do quadro alinhado com a normal n.
+  // construimos uma base ortonormal: right, up, forward(=n)
+  let up = UP.clone();
+  if (Math.abs(n.dot(up)) > 0.95) up = new THREE.Vector3(0,0,1); // fallback
+  const right = new THREE.Vector3().crossVectors(up, n).normalize();
+  const realUp = new THREE.Vector3().crossVectors(n, right).normalize();
+
+  const rot = new THREE.Matrix4().makeBasis(right, realUp, n);
+  const quat = new THREE.Quaternion().setFromRotationMatrix(rot);
+
+  const out = new THREE.Matrix4();
+  out.compose(pos, quat, new THREE.Vector3(1,1,1));
+  return out;
+}
+
+// ---- toque para fixar / mover o quadro ----
+const _placeMat = new THREE.Matrix4();
+const _offMat = new THREE.Matrix4();
+function onSelect(){
+  if (!reticle.visible) {
+    toast('Aponte para uma parede primeiro');
+    return;
+  }
+  if (!posterModel){
+    posterModel = modelTemplate.clone(true);
+    scene.add(posterModel);
+  }
+  posterModel.matrixAutoUpdate = false;
+  // reticle.matrix esta rente a parede. O quadro tem espessura, entao
+  // empurramos +Z local por (metade da profundidade) para que a face
+  // de TRAS encoste na parede em vez do centro do quadro.
+  _offMat.makeTranslation(0, 0, posterSize.depth / 2);
+  _placeMat.copy(reticle.matrix).multiply(_offMat);
+  posterModel.matrix.copy(_placeMat);
+  posterPlaced = true;
+  resetBtn.classList.remove('hidden');
+  setStatus('Quadro fixado — toque em outro ponto para mover');
+  toast('Quadro posicionado em escala real');
+}
+
+// ---- loop de render ----
+function onXRFrame(timestamp, frame){
+  if (!frame) return;
+  const results = frame.getHitTestResults(hitTestSource);
+
+  let wallHit = null;
+  for (const r of results){
+    const pose = r.getPose(xrRefSpace);
+    if (!pose) continue;
+    _m.fromArray(pose.transform.matrix);
+    const n = surfaceNormalFromPose(_m.clone());
+    if (isWall(n)){ wallHit = _m.clone(); break; }
+  }
+
+  if (wallHit){
+    const wallPose = poseOnWall(wallHit);
+    reticle.visible = true;
+    reticle.matrix.copy(wallPose);
+    // mostra o contorno em tamanho real so enquanto o quadro nao foi fixado
+    if (!posterPlaced){
+      sizePreview.visible = true;
+      sizePreview.matrix.copy(wallPose);
+      setStatus('Parede encontrada — toque para fixar o quadro');
+    } else {
+      sizePreview.visible = false;
+    }
+  } else {
+    reticle.visible = false;
+    sizePreview.visible = false;
+    if (!posterPlaced && results.length > 0){
+      setStatus('Superfície detectada não é vertical — aponte para a parede');
+    } else if (!posterPlaced){
+      setStatus('Procurando parede… mova o celular devagar');
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+</script>
+</body>
+</html>

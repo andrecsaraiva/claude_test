@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AR Try-On — Escaneie para começar</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    font-family:-apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    background:#0d0d0f; color:#fff; padding:24px;
+  }
+  .card {
+    background:#16161a; border:1px solid #26262c; border-radius:20px;
+    padding:36px 32px; max-width:380px; width:100%; text-align:center;
+  }
+  h1 { font-size:21px; font-weight:650; margin-bottom:8px; }
+  .sub { font-size:13px; color:#9a9aa2; line-height:1.5; margin-bottom:26px; }
+  #qrbox {
+    background:#fff; width:240px; height:240px; margin:0 auto 22px;
+    border-radius:14px; display:flex; align-items:center; justify-content:center;
+  }
+  #qrbox canvas, #qrbox img { width:212px; height:212px; }
+  .url {
+    font-size:11px; color:#6e6e78; word-break:break-all;
+    background:#0d0d0f; border:1px solid #26262c; border-radius:8px;
+    padding:8px 10px; margin-bottom:18px;
+  }
+  .steps { text-align:left; font-size:13px; color:#b8b8c0; line-height:1.7; }
+  .steps b { color:#fff; }
+  .open-btn {
+    display:inline-block; margin-top:18px; padding:12px 26px;
+    background:#f5f3ee; color:#16161a; border-radius:100px;
+    font-weight:600; font-size:14px; text-decoration:none;
+  }
+  .note { font-size:11px; color:#5a5a64; margin-top:18px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Veja o quadro na sua parede</h1>
+    <p class="sub">Experiência de realidade aumentada — projete o poster em tamanho real antes de comprar.</p>
+
+    <div id="qrbox"><span style="color:#888;font-size:12px">gerando QR…</span></div>
+    <div class="url" id="urltext">—</div>
+
+    <div class="steps">
+      <div><b>1.</b> Abra a câmera do Android e aponte para o QR.</div>
+      <div><b>2.</b> Toque no link para abrir no <b>Chrome</b>.</div>
+      <div><b>3.</b> Permita o acesso à câmera.</div>
+      <div><b>4.</b> Aponte para a parede e toque para fixar.</div>
+    </div>
+
+    <a class="open-btn" id="openLink" href="ar.html">Abrir AR neste aparelho</a>
+
+    <p class="note">Requer Android com Chrome e ARCore (WebXR).</p>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+  // URL absoluta de ar.html — funciona em qualquer host sem editar nada.
+  const arURL = new URL('ar.html', window.location.href).href;
+  document.getElementById('urltext').textContent = arURL;
+  document.getElementById('openLink').href = arURL;
+
+  const box = document.getElementById('qrbox');
+  QRCode.toCanvas(arURL, { width: 212, margin: 1 }, function (err, canvas) {
+    box.innerHTML = '';
+    if (err) {
+      box.innerHTML = '<span style="color:#c00;font-size:12px">erro no QR</span>';
+      return;
+    }
+    box.appendChild(canvas);
+  });
+</script>
+</body>
+</html>
