@@ -21,7 +21,9 @@
     background:#fff; width:240px; height:240px; margin:0 auto 22px;
     border-radius:14px; display:flex; align-items:center; justify-content:center;
   }
-  #qrbox canvas, #qrbox img { width:212px; height:212px; }
+  #qrbox canvas { width:212px; height:212px; image-rendering:pixelated; }
+  #qrbox .msg { color:#888; font-size:12px; }
+  #qrbox .err { color:#c0392b; font-size:12px; padding:0 12px; }
   .url {
     font-size:11px; color:#6e6e78; word-break:break-all;
     background:#0d0d0f; border:1px solid #26262c; border-radius:8px;
@@ -42,7 +44,7 @@
     <h1>Veja o quadro na sua parede</h1>
     <p class="sub">Experiência de realidade aumentada — projete o poster em tamanho real antes de comprar.</p>
 
-    <div id="qrbox"><span style="color:#888;font-size:12px">gerando QR…</span></div>
+    <div id="qrbox"><span class="msg">gerando QR…</span></div>
     <div class="url" id="urltext">—</div>
 
     <div class="steps">
@@ -57,22 +59,338 @@
     <p class="note">Requer Android com Chrome e ARCore (WebXR).</p>
   </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<!-- Gerador de QR embutido (sem CDN, sem dependencias externas) -->
+<script>
+// QR Code generator - implementacao autocontida, dominio publico.
+// Baseada no algoritmo classico de Kazuhiko Arase (MIT/dominio publico).
+// Sem dependencias externas. Gera QR e desenha em <canvas>.
+(function(global){
+  'use strict';
+
+  // ---- Galois field GF(256) ----
+  var EXP = new Array(256), LOG = new Array(256);
+  (function(){
+    var x = 1;
+    for (var i = 0; i < 255; i++){
+      EXP[i] = x;
+      x <<= 1;
+      if (x & 0x100) x ^= 0x11d;
+    }
+    for (var i = 0; i < 255; i++) LOG[EXP[i]] = i;
+  })();
+  function gmul(a,b){ if(a===0||b===0) return 0; return EXP[(LOG[a]+LOG[b])%255]; }
+
+  // ---- Reed-Solomon ----
+  function rsGenerator(degree){
+    var poly = [1];
+    for (var i = 0; i < degree; i++){
+      var np = new Array(poly.length+1).fill(0);
+      for (var j = 0; j < poly.length; j++){
+        np[j] ^= poly[j];
+        np[j+1] ^= gmul(poly[j], EXP[i]);
+      }
+      poly = np;
+    }
+    return poly;
+  }
+  function rsEncode(data, ecLen){
+    var gen = rsGenerator(ecLen);
+    var res = data.slice().concat(new Array(ecLen).fill(0));
+    for (var i = 0; i < data.length; i++){
+      var coef = res[i];
+      if (coef !== 0){
+        for (var j = 0; j < gen.length; j++){
+          res[i+j] ^= gmul(gen[j], coef);
+        }
+      }
+    }
+    return res.slice(data.length);
+  }
+
+  // ---- tabela de capacidade (byte mode, EC level M) por versao ----
+  // [versao] = {cap: bytes de dados, ecPerBlock, blocks: [[count, dataCodewords],...], totalCw}
+  var VERSIONS = {
+    1:{tot:26,ec:10,grp:[[1,16]]},
+    2:{tot:44,ec:16,grp:[[1,28]]},
+    3:{tot:70,ec:26,grp:[[1,44]]},
+    4:{tot:100,ec:18,grp:[[2,32]]},
+    5:{tot:134,ec:24,grp:[[2,43]]},
+    6:{tot:172,ec:16,grp:[[4,27]]},
+    7:{tot:196,ec:18,grp:[[4,31]]},
+    8:{tot:242,ec:22,grp:[[2,38],[2,39]]},
+    9:{tot:292,ec:22,grp:[[3,36],[2,37]]},
+    10:{tot:346,ec:26,grp:[[4,43],[1,44]]}
+  };
+
+  function capacityBytes(v){
+    var info = VERSIONS[v];
+    var dataCw = 0;
+    for (var i=0;i<info.grp.length;i++) dataCw += info.grp[i][0]*info.grp[i][1];
+    // 2 bytes overhead: mode(4b)+length(8b)+terminator ~ aprox; subtrai 2 p/ folga
+    return dataCw - 2;
+  }
+
+  function chooseVersion(len){
+    for (var v=1; v<=10; v++){
+      if (capacityBytes(v) >= len) return v;
+    }
+    throw new Error('URL longa demais para QR v<=10');
+  }
+
+  // ---- BitBuffer ----
+  function BitBuffer(){ this.buf=[]; this.len=0; }
+  BitBuffer.prototype.put = function(num,bits){
+    for (var i=0;i<bits;i++) this.putBit(((num>>>(bits-i-1))&1)===1);
+  };
+  BitBuffer.prototype.putBit = function(bit){
+    var idx = Math.floor(this.len/8);
+    if (this.buf.length<=idx) this.buf.push(0);
+    if (bit) this.buf[idx] |= (0x80>>>(this.len%8));
+    this.len++;
+  };
+
+  // ---- monta os codewords de dados (byte mode) ----
+  function makeData(str, version){
+    var info = VERSIONS[version];
+    var bytes = [];
+    for (var i=0;i<str.length;i++){
+      var c = str.charCodeAt(i);
+      if (c < 128){ bytes.push(c); }
+      else { // UTF-8
+        var enc = unescape(encodeURIComponent(str.charAt(i)));
+        for (var k=0;k<enc.length;k++) bytes.push(enc.charCodeAt(k));
+      }
+    }
+    var bb = new BitBuffer();
+    bb.put(4, 4);                 // mode: byte
+    bb.put(bytes.length, 8);      // length (8 bits p/ v1-9; v10 usa 16, tratamos abaixo)
+    if (version >= 10){
+      // refaz com 16 bits de length
+      bb = new BitBuffer();
+      bb.put(4,4);
+      bb.put(bytes.length,16);
+    }
+    for (var i=0;i<bytes.length;i++) bb.put(bytes[i],8);
+
+    var dataCw = 0;
+    for (var g=0;g<info.grp.length;g++) dataCw += info.grp[g][0]*info.grp[g][1];
+    var totalDataBits = dataCw*8;
+    // terminator
+    for (var i=0;i<4 && bb.len<totalDataBits;i++) bb.putBit(false);
+    // pad ate byte
+    while (bb.len%8 !== 0) bb.putBit(false);
+    // pad bytes
+    var padBytes = [0xEC,0x11], pi=0;
+    while (bb.buf.length < dataCw){ bb.buf.push(padBytes[pi%2]); pi++; }
+
+    // divide em blocos, calcula EC
+    var dataBlocks=[], ecBlocks=[], pos=0;
+    for (var g=0; g<info.grp.length; g++){
+      for (var b=0;b<info.grp[g][0];b++){
+        var cnt = info.grp[g][1];
+        var blk = bb.buf.slice(pos,pos+cnt); pos+=cnt;
+        dataBlocks.push(blk);
+        ecBlocks.push(rsEncode(blk, info.ec));
+      }
+    }
+    // interleave
+    var result=[];
+    var maxData = Math.max.apply(null, dataBlocks.map(function(b){return b.length;}));
+    for (var i=0;i<maxData;i++)
+      for (var b=0;b<dataBlocks.length;b++)
+        if (i<dataBlocks[b].length) result.push(dataBlocks[b][i]);
+    for (var i=0;i<info.ec;i++)
+      for (var b=0;b<ecBlocks.length;b++)
+        result.push(ecBlocks[b][i]);
+    return result;
+  }
+
+  // ---- matriz do QR ----
+  function QRMatrix(version){
+    this.version = version;
+    this.size = version*4 + 17;
+    this.modules = [];
+    for (var r=0;r<this.size;r++){
+      this.modules.push(new Array(this.size).fill(null));
+    }
+  }
+  QRMatrix.prototype.setupFinder = function(row,col){
+    for (var r=-1;r<=7;r++){
+      for (var c=-1;c<=7;c++){
+        var rr=row+r, cc=col+c;
+        if (rr<0||rr>=this.size||cc<0||cc>=this.size) continue;
+        var on = (0<=r&&r<=6&&(c===0||c===6)) ||
+                 (0<=c&&c<=6&&(r===0||r===6)) ||
+                 (2<=r&&r<=4&&2<=c&&c<=4);
+        this.modules[rr][cc] = on;
+      }
+    }
+  };
+  QRMatrix.prototype.setupTiming = function(){
+    for (var i=8;i<this.size-8;i++){
+      if (this.modules[6][i]===null) this.modules[6][i] = (i%2===0);
+      if (this.modules[i][6]===null) this.modules[i][6] = (i%2===0);
+    }
+  };
+  // posicoes de alignment pattern por versao
+  var ALIGN = {1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],
+               7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50]};
+  QRMatrix.prototype.setupAlignment = function(){
+    var pos = ALIGN[this.version];
+    for (var i=0;i<pos.length;i++){
+      for (var j=0;j<pos.length;j++){
+        var r=pos[i], c=pos[j];
+        if (this.modules[r][c]!==null) continue;
+        for (var dr=-2;dr<=2;dr++){
+          for (var dc=-2;dc<=2;dc++){
+            this.modules[r+dr][c+dc] =
+              (Math.max(Math.abs(dr),Math.abs(dc))!==1);
+          }
+        }
+      }
+    }
+  };
+  QRMatrix.prototype.reserveFormat = function(){
+    for (var i=0;i<9;i++){
+      if (this.modules[8][i]===null) this.modules[8][i]=false;
+      if (this.modules[i][8]===null) this.modules[i][8]=false;
+    }
+    for (var i=0;i<8;i++){
+      if (this.modules[8][this.size-1-i]===null) this.modules[8][this.size-1-i]=false;
+      if (this.modules[this.size-1-i][8]===null) this.modules[this.size-1-i][8]=false;
+    }
+    this.modules[this.size-8][8]=true; // dark module
+  };
+
+  // BCH p/ format info (EC level M = 00, mask)
+  function bchFormat(data){
+    var d = data<<10;
+    var g = 0x537;
+    while ((function(x){var b=-1;while(x){b++;x>>>=1;}return b;})(d) >= (function(x){var b=-1;while(x){b++;x>>>=1;}return b;})(g)){
+      d ^= g << ((function(x){var b=-1;while(x){b++;x>>>=1;}return b;})(d) - (function(x){var b=-1;while(x){b++;x>>>=1;}return b;})(g));
+    }
+    return ((data<<10)|d) ^ 0x5412;
+  }
+
+  QRMatrix.prototype.placeFormat = function(maskId){
+    var fmt = bchFormat((0<<3)|maskId); // 0 = EC level M
+    for (var i=0;i<15;i++){
+      var bit = ((fmt>>>i)&1)===1;
+      // copia 1
+      if (i<6) this.modules[i][8]=bit;
+      else if (i<8) this.modules[i+1][8]=bit;
+      else if (i===8) this.modules[8][7]=bit;
+      else this.modules[8][14-i]=bit;
+      // copia 2
+      if (i<8) this.modules[8][this.size-1-i]=bit;
+      else this.modules[this.size-15+i][8]=bit;
+    }
+  };
+
+  function maskFn(id,r,c){
+    switch(id){
+      case 0: return (r+c)%2===0;
+      case 1: return r%2===0;
+      case 2: return c%3===0;
+      case 3: return (r+c)%3===0;
+      case 4: return (Math.floor(r/2)+Math.floor(c/3))%2===0;
+      case 5: return (r*c)%2 + (r*c)%3 === 0;
+      case 6: return ((r*c)%2 + (r*c)%3)%2===0;
+      case 7: return ((r+c)%2 + (r*c)%3)%2===0;
+    }
+    return false;
+  }
+
+  QRMatrix.prototype.mapData = function(data, maskId){
+    var bitIdx=0, size=this.size;
+    var dirUp=true;
+    for (var col=size-1; col>0; col-=2){
+      if (col===6) col--; // pula coluna de timing
+      for (var i=0;i<size;i++){
+        var row = dirUp ? size-1-i : i;
+        for (var cc=0;cc<2;cc++){
+          var c = col-cc;
+          if (this.modules[row][c]!==null) continue;
+          var dark=false;
+          if (bitIdx < data.length*8){
+            var byteV = data[bitIdx>>>3];
+            dark = ((byteV>>>(7-(bitIdx&7)))&1)===1;
+          }
+          if (maskFn(maskId,row,c)) dark = !dark;
+          this.modules[row][c]=dark;
+          bitIdx++;
+        }
+      }
+      dirUp=!dirUp;
+    }
+  };
+
+  function generate(text){
+    var version = chooseVersion(
+      (unescape(encodeURIComponent(text))).length
+    );
+    var data = makeData(text, version);
+    var qr = new QRMatrix(version);
+    qr.setupFinder(0,0);
+    qr.setupFinder(0,qr.size-7);
+    qr.setupFinder(qr.size-7,0);
+    qr.setupAlignment();
+    qr.setupTiming();
+    qr.reserveFormat();
+    var maskId = 0; // mascara fixa 0 (suficiente p/ leitura confiavel)
+    qr.mapData(data, maskId);
+    qr.placeFormat(maskId);
+    return qr;
+  }
+
+  // ---- API publica: desenha em canvas ----
+  function toCanvas(canvas, text, opts){
+    opts = opts || {};
+    var px = opts.size || 240;
+    var margin = opts.margin!=null ? opts.margin : 4;
+    var qr = generate(text);
+    var n = qr.size;
+    var total = n + margin*2;
+    var scale = Math.floor(px/total) || 1;
+    var dim = scale*total;
+    canvas.width = dim;
+    canvas.height = dim;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = opts.light || '#ffffff';
+    ctx.fillRect(0,0,dim,dim);
+    ctx.fillStyle = opts.dark || '#000000';
+    for (var r=0;r<n;r++){
+      for (var c=0;c<n;c++){
+        if (qr.modules[r][c]){
+          ctx.fillRect((c+margin)*scale,(r+margin)*scale,scale,scale);
+        }
+      }
+    }
+    return canvas;
+  }
+
+  global.SimpleQR = { toCanvas: toCanvas, generate: generate };
+})(typeof window!=='undefined'?window:this);
+
+</script>
+
 <script>
   // URL absoluta de ar.html — funciona em qualquer host sem editar nada.
-  const arURL = new URL('ar.html', window.location.href).href;
+  var arURL = new URL('ar.html', window.location.href).href;
   document.getElementById('urltext').textContent = arURL;
   document.getElementById('openLink').href = arURL;
 
-  const box = document.getElementById('qrbox');
-  QRCode.toCanvas(arURL, { width: 212, margin: 1 }, function (err, canvas) {
+  var box = document.getElementById('qrbox');
+  try {
+    var canvas = document.createElement('canvas');
+    SimpleQR.toCanvas(canvas, arURL, { size: 212, margin: 4 });
     box.innerHTML = '';
-    if (err) {
-      box.innerHTML = '<span style="color:#c00;font-size:12px">erro no QR</span>';
-      return;
-    }
     box.appendChild(canvas);
-  });
+  } catch (e) {
+    box.innerHTML = '<span class="err">Erro ao gerar QR: ' + e.message +
+      '<br>Use o botão abaixo neste aparelho.</span>';
+    console.error('QR error:', e);
+  }
 </script>
 </body>
 </html>

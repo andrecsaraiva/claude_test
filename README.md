@@ -8,26 +8,40 @@ superfície vertical e escala real, via **WebXR**. Funciona em **Android + Chrom
 Coloque os 4 arquivos **todos juntos na raiz** do repositório, sem subpastas:
 
     ar-tryon/
-    ├── index.html      <- página com o QR code
+    ├── index.html      <- página com o QR code (gerador embutido, sem CDN)
     ├── ar.html         <- a experiência de AR (WebXR)
     ├── poster.glb      <- seu modelo 3D (56 × 86 cm)
     └── vercel.json     <- faz o Vercel servir o .glb corretamente
 
-Não crie pasta para o GLB. O `ar.html` procura o modelo em `./poster.glb`
-(mesma pasta). Se você mover o GLB para uma subpasta, atualize a constante
-`MODEL_URL` no topo do `ar.html` (ex.: `'./assets/poster.glb'`).
+O `ar.html` procura o modelo em `./poster.glb` (mesma pasta). Se mover o
+GLB para uma subpasta, atualize `MODEL_URL` no topo do `ar.html`.
+
+## Correção: QR travado em "gerando QR…"
+
+A versão anterior do `index.html` carregava a biblioteca de QR de um CDN
+externo (jsdelivr). Quando esse CDN é bloqueado ou falha, o script nunca
+carrega e a página fica presa em "gerando QR…" sem erro visível.
+
+Corrigido: o `index.html` agora tem um **gerador de QR embutido** no
+próprio arquivo (algoritmo de domínio público). Não depende de nenhum CDN
+para o QR — funciona mesmo offline. Se algo falhar, agora aparece uma
+mensagem de erro em vez de travar silenciosamente.
+
+O QR gerado foi testado e decodifica corretamente para a URL do `ar.html`.
 
 ## Deploy com GitHub Desktop + Vercel
 
 1. No GitHub Desktop: **File > New Repository**, escolha uma pasta.
 2. Copie os 4 arquivos para dentro dessa pasta (na raiz).
-3. **Commit** ("primeira versão") e **Publish repository**.
-4. Em vercel.com: **Add New > Project**, importe esse repositório.
-5. Framework Preset: **Other**. Não precisa de build. Clique **Deploy**.
-6. O Vercel te dá uma URL `https://...vercel.app` — já é HTTPS, pronto.
+3. **Commit** e **Publish repository**.
+4. Em vercel.com: **Add New > Project**, importe o repositório.
+5. Framework Preset: **Other**. Sem build. Clique **Deploy**.
+6. O Vercel dá uma URL `https://...vercel.app` — já é HTTPS.
 
-Abra essa URL no desktop: o `index.html` mostra o QR code. O QR aponta
-sozinho para o `ar.html` no mesmo domínio — não precisa editar nada.
+Importante: depois de substituir os arquivos, faça um novo **commit** no
+GitHub Desktop e o Vercel redeploy automático. Ao abrir a URL no celular,
+use **recarregar forçado** ou aba anônima para não pegar o index.html
+antigo do cache.
 
 ## Como testar
 
@@ -35,39 +49,43 @@ sozinho para o `ar.html` no mesmo domínio — não precisa editar nada.
 2. Toque para abrir no **Google Chrome** (não funciona em outro navegador).
 3. Toque em "Iniciar câmera" e permita o acesso à câmera.
 4. Aponte para a **parede** e mova o celular devagar.
-5. Um contorno verde do tamanho real do quadro aparece grudado na parede.
+5. Um contorno verde do tamanho real (56 × 86 cm) gruda na parede.
 6. Toque na tela para fixar. Toque de novo em outro ponto para reposicionar.
 
 ## Configuração do modelo (já ajustada)
 
-No topo do `ar.html`, o bloco CONFIG já está configurado para o seu GLB:
+No topo do `ar.html`, o bloco CONFIG já está certo para o seu GLB:
 
     MODEL_URL       = './poster.glb'
     MODEL_SCALE     = 1.0      // GLB já veio em metros (Blender exporta em m)
     MODEL_REAL_SIZE = null     // usa o tamanho nativo: 0.56 × 0.86 m
     MODEL_AUTOCENTER = true
 
-Observação: mesmo com a Unit do Blender em cm, o exportador glTF grava
-sempre em metros. Seu GLB foi medido em 0.56 × 0.86 m — por isso a escala
-correta é 1.0, e NÃO 0.01. Se quiser travar uma medida exata diferente,
-use `MODEL_REAL_SIZE = { width: 0.56, height: 0.86 }` (valores em metros).
+O Blender exporta glTF sempre em metros, mesmo com a Unit da cena em cm.
+O bbox medido do seu GLB é 0.56 × 0.86 m — por isso `MODEL_SCALE = 1.0`,
+e NÃO 0.01.
+
+## Dependência de CDN restante (three.js)
+
+O `ar.html` ainda carrega o **three.js** do CDN `unpkg.com`. Isso é
+intencional: three.js é grande demais para embutir, e o unpkg é mais
+estável que o CDN de QR. Se o unpkg também falhar no seu ambiente,
+baixe os arquivos do three.js e sirva-os localmente — me avise que eu
+ajusto o `ar.html` para apontar para cópias locais.
 
 ## Ajuste de tracking (se necessário)
 
-Teste no aparelho primeiro. Se precisar afinar, no `ar.html`:
-
-- `VERTICAL_DOT_MIN` (0.82): se ele recusar paredes válidas, baixe p/ ~0.70.
-  Se aceitar o chão por engano, suba p/ ~0.90.
+- `VERTICAL_DOT_MIN` (0.82): se recusar paredes válidas, baixe p/ ~0.70.
+  Se aceitar o chão, suba p/ ~0.90.
 - `WALL_OFFSET` (0.012 m): distância do quadro para fora da parede.
 
-Para depurar no Android, conecte o cabo USB e abra `chrome://inspect` no
-PC — o `console.log` do `ar.html` imprime as dimensões detectadas do GLB.
+Para depurar no Android: cabo USB + `chrome://inspect` no PC mostra o
+console do `ar.html`.
 
 ## Limitações conhecidas
 
-- **iPhone não funciona**: o Safari não suporta WebXR AR. Fase iOS exigirá
-  um caminho separado (USDZ + Quick Look).
-- Paredes lisas e sem textura dão menos pontos de tracking ao ARCore —
-  por isso o fluxo é "mira + toque", mais estável que detecção automática.
-- A textura atual do GLB é um pôster licenciado (Star Wars). Ok para teste
-  interno; troque por arte licenciada ao cliente antes de qualquer uso público.
+- **iPhone não funciona**: Safari não suporta WebXR AR.
+- Paredes lisas e sem textura dão menos pontos ao ARCore — por isso o
+  fluxo é "mira + toque".
+- A textura do GLB é um pôster licenciado (Star Wars). Ok para teste
+  interno; troque por arte licenciada ao cliente antes de uso público.
