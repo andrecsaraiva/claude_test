@@ -73,6 +73,22 @@ estável que o CDN de QR. Se o unpkg também falhar no seu ambiente,
 baixe os arquivos do three.js e sirva-os localmente — me avise que eu
 ajusto o `ar.html` para apontar para cópias locais.
 
+## Painel de debug (LOG)
+
+Dentro do AR há um botão **LOG** no canto superior esquerdo. Toque nele
+para abrir o painel de diagnóstico. Ele mostra em tempo real:
+
+- Se o WebXR e o hit-test inicializaram
+- Quantas superfícies o ARCore detecta por frame
+- A normal de cada superfície e se passou no filtro de parede
+- Cada transição de estado (achou parede / perdeu / não-parede)
+
+Para reportar um problema de tracking: abra o AR, aponte para a parede e
+mexa o celular por uns 15-20 segundos, depois toque em **Copiar log** e
+cole o conteúdo no chat. Com esse log dá para ver exatamente se o ARCore
+não está detectando nada, ou se está detectando mas o filtro de parede
+está rejeitando.
+
 ## Ajuste de tracking (se necessário)
 
 - `VERTICAL_DOT_MIN` (0.82): se recusar paredes válidas, baixe p/ ~0.70.

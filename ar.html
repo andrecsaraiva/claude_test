@@ -56,6 +56,40 @@
     background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 100px;
     font-size: 12px; opacity: 0; transition: opacity .25s; white-space: nowrap;
   }
+
+  /* ===== painel de debug ===== */
+  #debugPanel {
+    position: absolute; left: 8px; right: 8px;
+    top: calc(env(safe-area-inset-top, 14px) + 60px);
+    height: 40vh; display: flex; flex-direction: column;
+    background: rgba(0,0,0,0.82); border: 1px solid rgba(124,255,178,0.4);
+    border-radius: 10px; pointer-events: auto; overflow: hidden;
+  }
+  #debugLog {
+    flex: 1; overflow-y: auto; padding: 8px 10px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10px; line-height: 1.45; color: #b9f5cf;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  #debugLog .warn { color: #ffd27c; }
+  #debugLog .err  { color: #ff8a80; }
+  #debugLog .ok   { color: #7CFFB2; }
+  #debugBtns { display: flex; border-top: 1px solid rgba(255,255,255,0.12); }
+  .dbg {
+    flex: 1; padding: 10px 4px; font-size: 12px; font-weight: 600;
+    background: rgba(20,20,24,0.9); color: #fff; border: none;
+    border-right: 1px solid rgba(255,255,255,0.1); cursor: pointer;
+  }
+  .dbg:last-child { border-right: none; }
+  .dbg:active { background: rgba(124,255,178,0.2); }
+  #showLogBtn {
+    position: absolute; left: 14px;
+    top: calc(env(safe-area-inset-top, 14px) + 14px);
+    padding: 7px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+    background: rgba(0,0,0,0.62); border: 1px solid rgba(124,255,178,0.5);
+    color: #7CFFB2; border-radius: 8px; pointer-events: auto; cursor: pointer;
+  }
+  #debugPanel.hidden, #showLogBtn.hidden { display: none; }
 </style>
 </head>
 <body>
@@ -71,6 +105,18 @@
   <div id="status">Iniciando…</div>
   <button id="exitBtn">✕</button>
   <div id="toast"></div>
+
+  <!-- ===== painel de DEBUG ===== -->
+  <div id="debugPanel">
+    <div id="debugLog"></div>
+    <div id="debugBtns">
+      <button class="dbg" id="copyLogBtn">Copiar log</button>
+      <button class="dbg" id="clearLogBtn">Limpar</button>
+      <button class="dbg" id="hideLogBtn">Ocultar</button>
+    </div>
+  </div>
+  <button id="showLogBtn">LOG</button>
+
   <div id="bottomBar">
     <button class="pill hidden" id="resetBtn">Reposicionar</button>
   </div>
@@ -130,6 +176,61 @@ const startBtn = document.getElementById('startBtn');
 const exitBtn  = document.getElementById('exitBtn');
 const resetBtn = document.getElementById('resetBtn');
 
+// ===== motor de DEBUG =====
+const debugPanel = document.getElementById('debugPanel');
+const debugLogEl = document.getElementById('debugLog');
+const DBG = {
+  lines: [],
+  max: 400,
+  t0: performance.now(),
+  push(msg, cls){
+    const t = ((performance.now() - this.t0) / 1000).toFixed(2);
+    const entry = '[' + t + 's] ' + msg;
+    this.lines.push({ text: entry, cls: cls || '' });
+    if (this.lines.length > this.max) this.lines.shift();
+    this.render();
+  },
+  render(){
+    if (!debugLogEl) return;
+    debugLogEl.innerHTML = this.lines
+      .map(l => l.cls ? '<span class="'+l.cls+'">'+esc(l.text)+'</span>' : esc(l.text))
+      .join('\n');
+    debugLogEl.scrollTop = debugLogEl.scrollHeight;
+  },
+  text(){ return this.lines.map(l => l.text).join('\n'); }
+};
+function esc(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// botoes do painel
+document.getElementById('showLogBtn').addEventListener('click', ()=>{
+  debugPanel.classList.remove('hidden');
+  document.getElementById('showLogBtn').classList.add('hidden');
+});
+document.getElementById('hideLogBtn').addEventListener('click', ()=>{
+  debugPanel.classList.add('hidden');
+  document.getElementById('showLogBtn').classList.remove('hidden');
+});
+document.getElementById('clearLogBtn').addEventListener('click', ()=>{
+  DBG.lines = []; DBG.render();
+});
+document.getElementById('copyLogBtn').addEventListener('click', async ()=>{
+  const txt = DBG.text();
+  try {
+    await navigator.clipboard.writeText(txt);
+    toast('Log copiado — cole no chat');
+  } catch(e){
+    // fallback: seleciona o texto p/ copia manual
+    const ta = document.createElement('textarea');
+    ta.value = txt; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('Log copiado'); }
+    catch(e2){ toast('Copie manualmente do painel'); }
+    document.body.removeChild(ta);
+  }
+});
+
 let renderer, scene, camera;
 let reticle, sizePreview, posterModel, posterPlaced = false;
 let xrSession = null, xrRefSpace = null, viewerSpace = null;
@@ -152,6 +253,10 @@ async function checkSupport(){
 }
 
 checkSupport().then(ok => {
+  DBG.push('=== AR Try-On debug ===');
+  DBG.push('UA: ' + navigator.userAgent);
+  DBG.push('WebXR immersive-ar suportado: ' + ok, ok ? 'ok' : 'err');
+  DBG.push('tela: ' + innerWidth + 'x' + innerHeight + ' dpr=' + devicePixelRatio);
   if (!ok){
     startBtn.style.display = 'none';
     document.getElementById('unsupported').style.display = 'block';
@@ -168,16 +273,26 @@ let posterSize = { width: 0.6, height: 0.9, depth: 0.02 };
 // rotaciona para +Z, recentra a origem e aplica escala. Funciona com
 // GLBs exportados em qualquer orientacao (Blender, etc.).
 function preloadModel(){
+  DBG.push('carregando GLB: ' + MODEL_URL);
   return new Promise((resolve, reject)=>{
     new GLTFLoader().load(MODEL_URL,
       gltf => {
         try {
           modelTemplate = normalizeModel(gltf.scene);
+          DBG.push('GLB OK -> quadro ' + posterSize.width.toFixed(3) + ' x '
+            + posterSize.height.toFixed(3) + ' x ' + posterSize.depth.toFixed(4)
+            + ' m', 'ok');
           resolve();
-        } catch(e){ reject(e); }
+        } catch(e){
+          DBG.push('ERRO ao normalizar GLB: ' + e.message, 'err');
+          reject(e);
+        }
       },
       undefined,
-      err => reject(err)
+      err => {
+        DBG.push('ERRO ao carregar GLB: ' + (err && err.message || err), 'err');
+        reject(err);
+      }
     );
   });
 }
@@ -251,7 +366,9 @@ async function startAR(){
       optionalFeatures: ['dom-overlay', 'anchors', 'light-estimation'],
       domOverlay: { root: hudEl }
     });
+    DBG.push('sessao immersive-ar criada', 'ok');
   } catch(e){
+    DBG.push('ERRO ao criar sessao AR: ' + e.message, 'err');
     setStatus('Não foi possível abrir a câmera AR.');
     introEl.style.display = 'flex'; hudEl.style.display = 'none';
     return;
@@ -262,14 +379,24 @@ async function startAR(){
 
   xrRefSpace  = await xrSession.requestReferenceSpace('local');
   viewerSpace = await xrSession.requestReferenceSpace('viewer');
+  DBG.push('reference spaces local + viewer OK', 'ok');
 
   // hit-test a partir do "viewer" = centro da tela. Pegamos resultados
   // ao vivo a cada frame e filtramos os que apontam para parede.
-  hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
+  try {
+    hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
+    DBG.push('hitTestSource criado (espaco=viewer)', 'ok');
+  } catch(e){
+    DBG.push('ERRO ao criar hitTestSource: ' + e.message, 'err');
+  }
 
   xrSession.addEventListener('end', onSessionEnd);
   xrSession.addEventListener('select', onSelect);   // toque na tela
 
+  DBG.push('VERTICAL_DOT_MIN=' + VERTICAL_DOT_MIN
+    + '  (|normal.y| precisa ser < ' + (1 - VERTICAL_DOT_MIN).toFixed(2)
+    + ' p/ contar como parede)');
+  DBG.push('loop iniciado — aponte p/ a parede e mova devagar');
   setStatus('Procurando parede… mova o celular devagar');
   renderer.setAnimationLoop(onXRFrame);
 }
@@ -282,6 +409,7 @@ function onSessionEnd(){
   introEl.style.display = 'flex';
   posterPlaced = false;
   resetBtn.classList.add('hidden');
+  DBG.push('sessao AR encerrada — o log acima pode ser copiado');
 }
 
 exitBtn.addEventListener('click', ()=> xrSession && xrSession.end());
@@ -385,12 +513,14 @@ const UP = new THREE.Vector3(0,1,0);
 /**
  * Dado o pose de um hit-test, extrai a normal da superficie.
  * No WebXR a orientacao do hit-test result tem o +Y na normal do plano.
- * Retorna a normal em world-space.
+ * Retorna a normal (vetor NOVO) em world-space.
  */
 function surfaceNormalFromPose(matrix){
-  matrix.decompose(_p, _q, _s);
-  _normal.set(0,1,0).applyQuaternion(_q).normalize();
-  return _normal;
+  const q = new THREE.Quaternion();
+  const p = new THREE.Vector3();
+  const s = new THREE.Vector3();
+  matrix.decompose(p, q, s);
+  return new THREE.Vector3(0,1,0).applyQuaternion(q).normalize();
 }
 
 /** true se a superficie for aproximadamente vertical (parede). */
@@ -430,6 +560,7 @@ function poseOnWall(hitMatrix){
 const _placeMat = new THREE.Matrix4();
 const _offMat = new THREE.Matrix4();
 function onSelect(){
+  DBG.push('TOQUE na tela. reticle.visible=' + reticle.visible);
   if (!reticle.visible) {
     toast('Aponte para uma parede primeiro');
     return;
@@ -449,27 +580,88 @@ function onSelect(){
   resetBtn.classList.remove('hidden');
   setStatus('Quadro fixado — toque em outro ponto para mover');
   toast('Quadro posicionado em escala real');
+  DBG.push('quadro FIXADO na parede', 'ok');
 }
 
 // ---- loop de render ----
+// estado p/ throttle e deteccao de transicao
+let _dbgLastSummary = 0;
+let _dbgFrameCount = 0;
+let _dbgMaxHits = 0;
+let _dbgWallSeen = false;          // ja vimos parede nesta "fase"?
+let _dbgLastWallState = null;      // 'wall' | 'nonwall' | 'none'
+let _dbgFirstHitLogged = false;
+let _dbgFirstWallLogged = false;
+
 function onXRFrame(timestamp, frame){
   if (!frame) return;
-  const results = frame.getHitTestResults(hitTestSource);
+  if (!hitTestSource){ renderer.render(scene, camera); return; }
 
+  const results = frame.getHitTestResults(hitTestSource);
+  _dbgFrameCount++;
+  if (results.length > _dbgMaxHits) _dbgMaxHits = results.length;
+
+  // primeiro hit-test de toda a sessao
+  if (!_dbgFirstHitLogged && results.length > 0){
+    _dbgFirstHitLogged = true;
+    DBG.push('1o hit-test recebido (' + results.length + ' resultado(s))', 'ok');
+  }
+
+  // examina os hits e separa parede de nao-parede; guarda as normais
   let wallHit = null;
+  let normalsInfo = [];
   for (const r of results){
     const pose = r.getPose(xrRefSpace);
     if (!pose) continue;
     _m.fromArray(pose.transform.matrix);
     const n = surfaceNormalFromPose(_m.clone());
-    if (isWall(n)){ wallHit = _m.clone(); break; }
+    normalsInfo.push({ x:n.x, y:n.y, z:n.z, wall: isWall(n) });
+    if (isWall(n) && !wallHit){ wallHit = _m.clone(); }
+  }
+
+  // log imediato no 1o hit que e parede
+  if (!_dbgFirstWallLogged && wallHit){
+    _dbgFirstWallLogged = true;
+    DBG.push('1a PAREDE valida detectada', 'ok');
+  }
+
+  // deteccao de transicao de estado (log imediato, sem throttle)
+  const curState = wallHit ? 'wall' : (results.length > 0 ? 'nonwall' : 'none');
+  if (curState !== _dbgLastWallState){
+    if (curState === 'wall'){
+      DBG.push('-> PAREDE encontrada (reticle ON)', 'ok');
+    } else if (curState === 'nonwall'){
+      const n = normalsInfo[0];
+      DBG.push('-> superficie detectada mas NAO e parede. '
+        + 'normal=(' + n.x.toFixed(2) + ',' + n.y.toFixed(2) + ',' + n.z.toFixed(2)
+        + ') |y|=' + Math.abs(n.y).toFixed(2)
+        + ' (limite ' + (1 - VERTICAL_DOT_MIN).toFixed(2) + ')', 'warn');
+    } else {
+      DBG.push('-> sem nenhum hit-test (perdeu tracking / aponta p/ vazio)', 'warn');
+    }
+    _dbgLastWallState = curState;
+  }
+
+  // resumo throttled: 1x por segundo
+  if (timestamp - _dbgLastSummary > 1000){
+    let line = 'frames/s~' + _dbgFrameCount
+      + ' | hits agora=' + results.length
+      + ' | max hits=' + _dbgMaxHits;
+    if (normalsInfo.length){
+      const n = normalsInfo[0];
+      line += ' | normal[0]=(' + n.x.toFixed(2) + ','
+        + n.y.toFixed(2) + ',' + n.z.toFixed(2) + ')'
+        + (n.wall ? ' PAREDE' : ' nao-parede');
+    }
+    DBG.push(line);
+    _dbgLastSummary = timestamp;
+    _dbgFrameCount = 0;
   }
 
   if (wallHit){
     const wallPose = poseOnWall(wallHit);
     reticle.visible = true;
     reticle.matrix.copy(wallPose);
-    // mostra o contorno em tamanho real so enquanto o quadro nao foi fixado
     if (!posterPlaced){
       sizePreview.visible = true;
       sizePreview.matrix.copy(wallPose);
