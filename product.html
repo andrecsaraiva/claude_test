@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Star Wars: Episode IV - A New Hope (1977) - Classic Pose Poster | AllPosters</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root{
+    --ink:#1a1a1a; --black:#161616; --teal:#1bb5d8; --teal-soft:#5fd3ec;
+    --pink:#ec1c8e; --green:#5ad427; --orange:#ff7a00;
+    --line:#dcdcdc; --grey-txt:#6a6a6a; --card:#ffffff;
+  }
+  body{
+    font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
+    background:#ffffff; color:var(--ink); -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- top bars ---------- */
+  .topbar{
+    background:var(--black); color:#fff; font-size:12px;
+    display:flex; justify-content:center; gap:0; padding:7px 0;
+  }
+  .topbar span{ padding:0 16px; border-right:0; position:relative; }
+  .topbar span + span::before{
+    content:"|"; color:var(--pink); position:absolute; left:-3px;
+  }
+  .nav{
+    background:var(--black); padding:10px 26px 4px;
+    display:flex; align-items:center; gap:20px;
+  }
+  .logo{
+    color:#fff; font-size:30px; font-weight:800; letter-spacing:-1px;
+    white-space:nowrap; font-style:italic;
+  }
+  .logo sup{ font-size:10px; font-style:normal; }
+  .search{
+    flex:1; display:flex; height:38px;
+  }
+  .search input{
+    flex:1; border:none; padding:0 14px; font-size:14px; outline:none;
+  }
+  .search button{
+    width:46px; border:none; background:var(--pink); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .acct{ color:var(--teal); font-size:14px; font-weight:600; white-space:nowrap; }
+  .acct .caret{ font-size:10px; }
+  .help{
+    width:24px; height:24px; border:2px solid var(--green); border-radius:50%;
+    color:var(--green); display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:700;
+  }
+  .cart{ color:var(--orange); font-size:22px; }
+  .navlinks{
+    background:var(--black); display:flex; justify-content:center; gap:34px;
+    padding:4px 0 12px;
+  }
+  .navlinks a{
+    color:var(--teal); text-decoration:none; font-size:14px; font-weight:700;
+  }
+
+  /* ---------- layout ---------- */
+  .wrap{ max-width:1500px; margin:0 auto; padding:22px 26px 50px; }
+  .crumbs{ font-size:11px; color:#b6b6b6; letter-spacing:.5px; margin-bottom:14px; }
+  .crumbs b{ color:#b6b6b6; font-weight:700; }
+  .grid{
+    display:grid; grid-template-columns:1fr 1fr 0.62fr; gap:30px;
+    align-items:start;
+  }
+
+  /* ---------- left: gallery ---------- */
+  .gallery{ display:flex; flex-direction:column; align-items:center; }
+  .stage{
+    width:100%; max-width:430px; aspect-ratio:658/1000;
+    display:flex; align-items:center; justify-content:center;
+    position:relative; background:#fff;
+  }
+  .stage img.poster-main{
+    max-width:100%; max-height:100%; display:block;
+    box-shadow:0 4px 22px rgba(0,0,0,.22);
+  }
+  #viewer3d{ width:100%; height:100%; display:none; cursor:grab; }
+  #viewer3d:active{ cursor:grabbing; }
+  .viewer-badge{
+    position:absolute; top:10px; left:10px; display:none;
+    background:rgba(0,0,0,.7); color:#fff; font-size:11px;
+    padding:5px 10px; border-radius:3px; letter-spacing:.4px;
+  }
+  .viewer-qrbtn{
+    position:absolute; bottom:12px; right:12px; display:none;
+    background:#fff; color:var(--ink); border:1px solid var(--line);
+    border-radius:6px; padding:9px 13px; font-size:12px; font-weight:700;
+    cursor:pointer; align-items:center; gap:7px;
+    box-shadow:0 2px 10px rgba(0,0,0,.18);
+  }
+  .viewer-qrbtn svg{ width:15px; height:15px; }
+  .stage.is3d #viewer3d{ display:block; }
+  .stage.is3d .poster-main{ display:none; }
+  .stage.is3d .viewer-badge,
+  .stage.is3d .viewer-qrbtn{ display:flex; }
+
+  .stage-label{ margin:12px 0 14px; font-size:13px; letter-spacing:1px; }
+
+  .thumbs{ display:flex; gap:8px; }
+  .thumb{
+    width:62px; height:84px; border:1px solid var(--line);
+    cursor:pointer; overflow:hidden; background:#f3f3f3; padding:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .thumb img{ width:100%; height:100%; object-fit:cover; }
+  .thumb.active{ border:2px solid #888; }
+  .thumb.ar-thumb{
+    background:linear-gradient(135deg,#1bb5d8,#0e8fae);
+    color:#fff; flex-direction:column; gap:3px;
+  }
+  .thumb.ar-thumb svg{ width:26px; height:26px; }
+  .thumb.ar-thumb span{ font-size:9px; font-weight:800; letter-spacing:.5px; }
+
+  /* ---------- middle: product ---------- */
+  .product{
+    border:1px solid var(--line); border-radius:3px; padding:22px 24px;
+  }
+  .ptitle-row{ display:flex; justify-content:space-between; gap:12px; }
+  .ptitle{ font-size:22px; font-weight:800; line-height:1.25; }
+  .heart{ font-size:20px; color:#444; flex-shrink:0; }
+  .brand{
+    display:inline-block; margin:10px 0 18px; font-size:13px;
+    color:var(--ink); text-decoration:underline;
+  }
+  .section-label{ font-size:13px; font-weight:700; margin-bottom:8px; }
+  .sizes{ display:flex; gap:8px; margin-bottom:8px; }
+  .size{
+    border:1px solid #bdbdbd; background:#fff; border-radius:3px;
+    padding:8px 14px; font-size:13px; cursor:default; color:#333;
+  }
+  .size.active{
+    border-color:var(--teal); background:#e8f9fd; color:#0c7c98; font-weight:700;
+  }
+  .finished{ font-size:12px; font-weight:700; margin-bottom:18px; }
+
+  .frames{ display:flex; flex-wrap:wrap; gap:14px; margin-bottom:20px; }
+  .frame{ width:88px; text-align:center; }
+  .frame .fimg{
+    width:88px; height:118px; border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    background:#fafafa; overflow:hidden;
+  }
+  .frame.sel .fimg{ border:2px solid var(--teal); }
+  .frame .fimg img{ width:100%; height:100%; object-fit:cover; }
+  .frame .fname{ font-size:11px; font-weight:700; margin-top:6px; line-height:1.3; }
+  .frame .fprice{ font-size:12px; font-weight:800; margin-top:2px; }
+
+  .more-frames{
+    width:100%; background:var(--teal); color:#0a2730; border:none;
+    padding:13px; font-size:13px; font-weight:700; cursor:default;
+    border-radius:2px;
+  }
+
+  /* ---------- right: buy box ---------- */
+  .buy{
+    border:1px solid var(--line); border-radius:3px; padding:22px 22px 26px;
+  }
+  .price{ font-size:30px; font-weight:800; }
+  .arrives{ font-size:13px; margin:10px 0 16px; color:#222; }
+  .arrives u{ font-weight:700; }
+  .add-cart{
+    width:100%; background:var(--green); color:#0c2b06; border:none;
+    padding:14px; font-size:16px; font-weight:700; border-radius:2px;
+    cursor:default; margin-bottom:12px;
+  }
+  .paypal{ font-size:12px; color:#333; line-height:1.5; }
+  .paypal .pp{ color:#003087; font-weight:800; font-style:italic; }
+  .paypal a{ color:var(--teal); }
+
+  /* ---------- QR modal ---------- */
+  .modal-bg{
+    position:fixed; inset:0; background:rgba(0,0,0,.6);
+    display:none; align-items:center; justify-content:center; z-index:100;
+    padding:20px;
+  }
+  .modal-bg.open{ display:flex; }
+  .modal{
+    background:#fff; border-radius:14px; max-width:360px; width:100%;
+    padding:30px 28px; text-align:center; position:relative;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);
+  }
+  .modal h3{ font-size:19px; font-weight:800; margin-bottom:6px; }
+  .modal p{ font-size:13px; color:var(--grey-txt); line-height:1.5; margin-bottom:20px; }
+  .modal .qrbox{
+    width:210px; height:210px; margin:0 auto 18px; background:#fff;
+    border:1px solid var(--line); border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .modal .qrbox canvas{ width:186px; height:186px; image-rendering:pixelated; }
+  .modal .steps{ font-size:12px; color:#444; text-align:left; line-height:1.7; }
+  .modal .steps b{ color:var(--ink); }
+  .modal .close{
+    position:absolute; top:12px; right:14px; border:none; background:none;
+    font-size:22px; color:#999; cursor:pointer; line-height:1;
+  }
+  .modal .open-direct{
+    display:inline-block; margin-top:16px; font-size:12px; color:var(--teal);
+    text-decoration:underline; cursor:pointer;
+  }
+
+  @media(max-width:1100px){
+    .grid{ grid-template-columns:1fr; }
+    .topbar{ font-size:11px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== top promo bar ===== -->
+<div class="topbar">
+  <span>Print Your Own Photos</span>
+  <span>Get Best Selling Posters</span>
+  <span>Explore New Arrivals</span>
+</div>
+
+<!-- ===== nav ===== -->
+<div class="nav">
+  <div class="logo">Allposters<sup>®</sup></div>
+  <div class="search">
+    <input type="text" placeholder="Search Allposters.com" disabled>
+    <button tabindex="-1">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+        <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/>
+      </svg>
+    </button>
+  </div>
+  <div class="acct">My Account <span class="caret">▾</span></div>
+  <div class="help">?</div>
+  <div class="cart">🛒</div>
+</div>
+<div class="navlinks">
+  <a href="#">Best Sellers</a><a href="#">Subjects</a><a href="#">Custom Photos</a>
+  <a href="#">New Arrivals</a><a href="#">Art</a><a href="#">Brands</a>
+  <a href="#">More Products</a><a href="#">Sale</a>
+</div>
+
+<!-- ===== main ===== -->
+<div class="wrap">
+  <div class="crumbs"><b>ENTERTAINMENT</b> &nbsp;//&nbsp; <b>COMICS</b></div>
+
+  <div class="grid">
+
+    <!-- LEFT: gallery -->
+    <div class="gallery">
+      <div class="stage" id="stage">
+        <img class="poster-main" id="posterMain" src="poster_image.jpg" alt="Star Wars poster">
+        <canvas id="viewer3d"></canvas>
+        <div class="viewer-badge">3D VIEW · drag to rotate</div>
+        <button class="viewer-qrbtn" id="viewerQrBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/><line x1="14" y1="14" x2="14" y2="21"/>
+            <line x1="17" y1="14" x2="21" y2="14"/><line x1="21" y1="17" x2="21" y2="21"/>
+            <line x1="17" y1="21" x2="17" y2="17"/>
+          </svg>
+          View in your room (AR)
+        </button>
+      </div>
+      <div class="stage-label">POSTER</div>
+      <div class="thumbs" id="thumbs">
+        <button class="thumb active" data-mode="image" data-img="poster_image.jpg">
+          <img src="poster_thumb.jpg" alt="poster">
+        </button>
+        <button class="thumb" data-mode="image" data-img="room1.jpg">
+          <img src="room1.jpg" alt="room">
+        </button>
+        <button class="thumb" data-mode="image" data-img="room2.jpg">
+          <img src="room2.jpg" alt="room">
+        </button>
+        <button class="thumb" data-mode="image" data-img="room3.jpg">
+          <img src="room3.jpg" alt="room">
+        </button>
+        <button class="thumb ar-thumb" data-mode="3d" title="View in 3D / AR">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/>
+          </svg>
+          <span>3D / AR</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MIDDLE: product -->
+    <div class="product">
+      <div class="ptitle-row">
+        <div class="ptitle">Star Wars: Episode IV - A New Hope (1977) - Classic Pose Poster</div>
+        <div class="heart">♡</div>
+      </div>
+      <a class="brand" href="#">by Trends International</a>
+
+      <div class="section-label">Choose size</div>
+      <div class="sizes">
+        <div class="size">13" x 19"</div>
+        <div class="size active">15" x 22"</div>
+        <div class="size">22" x 34"</div>
+      </div>
+      <div class="finished">Finished Size: 15" x 22"</div>
+
+      <div class="frames">
+        <div class="frame sel">
+          <div class="fimg"><img src="poster_thumb.jpg" alt=""></div>
+          <div class="fname">Just the<br>Poster</div>
+          <div class="fprice">$18.99</div>
+        </div>
+        <div class="frame">
+          <div class="fimg" style="background:#1a1a1a;">
+            <img src="poster_thumb.jpg" alt="" style="width:74%;height:84%;object-fit:cover;">
+          </div>
+          <div class="fname">Essential<br>Black</div>
+          <div class="fprice">$49.99</div>
+        </div>
+        <div class="frame">
+          <div class="fimg" style="background:#1a1a1a;">
+            <img src="poster_thumb.jpg" alt="" style="width:70%;height:80%;object-fit:cover;">
+          </div>
+          <div class="fname">Chelsea<br>Black</div>
+          <div class="fprice">$107.99</div>
+        </div>
+        <div class="frame">
+          <div class="fimg" style="background:#6b4a2b;">
+            <img src="poster_thumb.jpg" alt="" style="width:76%;height:86%;object-fit:cover;">
+          </div>
+          <div class="fname">Wood<br>Mount</div>
+          <div class="fprice">$77.99</div>
+        </div>
+        <div class="frame">
+          <div class="fimg" style="background:#1a1a1a;">
+            <img src="poster_thumb.jpg" alt="" style="width:72%;height:82%;object-fit:cover;">
+          </div>
+          <div class="fname">Laminate</div>
+          <div class="fprice">$43.99</div>
+        </div>
+      </div>
+
+      <button class="more-frames" tabindex="-1">See More Frame Options</button>
+    </div>
+
+    <!-- RIGHT: buy box -->
+    <div class="buy">
+      <div class="price">$18.99</div>
+      <div class="arrives">Arrives by Sat, May 30 to <u>66952</u> ▾</div>
+      <button class="add-cart" tabindex="-1">Add to Cart</button>
+      <div class="paypal">
+        Buy now and pay later with <span class="pp">PayPal</span>.<br>
+        <a href="#">Learn more</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== QR modal ===== -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <button class="close" id="modalClose">✕</button>
+    <h3>View this poster in your room</h3>
+    <p>Scan with your Android phone to open the augmented-reality try-on.</p>
+    <div class="qrbox" id="qrbox"><span style="font-size:12px;color:#999;">generating…</span></div>
+    <div class="steps">
+      <div><b>1.</b> Open the camera on your Android phone.</div>
+      <div><b>2.</b> Point it at the QR code above.</div>
+      <div><b>3.</b> Tap the link to open it in <b>Chrome</b>.</div>
+      <div><b>4.</b> Point at your wall and tap to place the poster.</div>
+    </div>
+    <span class="open-direct" id="openDirect">Open AR on this device</span>
+  </div>
+</div>
+
+<!-- ===== QR generator (embedded, no CDN) ===== -->
+<script>
+// QR Code generator - implementacao autocontida, dominio publico.
+// Baseada no algoritmo classico de Kazuhiko Arase (MIT/dominio publico).
+// Sem dependencias externas. Gera QR e desenha em <canvas>.
+(function(global){
+  'use strict';
+
+  // ---- Galois field GF(256) ----
+  var EXP = new Array(256), LOG = new Array(256);
+  (function(){
+    var x = 1;
+    for (var i = 0; i < 255; i++){
+      EXP[i] = x;
+      x <<= 1;
+      if (x & 0x100) x ^= 0x11d;
+    }
+    for (var i = 0; i < 255; i++) LOG[EXP[i]] = i;
+  })();
+  function gmul(a,b){ if(a===0||b===0) return 0; return EXP[(LOG[a]+LOG[b])%255]; }
+
+  // ---- Reed-Solomon ----
+  function rsGenerator(degree){
+    var poly = [1];
+    for (var i = 0; i < degree; i++){
+      var np = new Array(poly.length+1).fill(0);
+      for (var j = 0; j < poly.length; j++){
+        np[j] ^= poly[j];
+        np[j+1] ^= gmul(poly[j], EXP[i]);
+      }
+      poly = np;
+    }
+    return poly;
+  }
+  function rsEncode(data, ecLen){
+    var gen = rsGenerator(ecLen);
+    var res = data.slice().concat(new Array(ecLen).fill(0));
+    for (var i = 0; i < data.length; i++){
+      var coef = res[i];
+      if (coef !== 0){
+        for (var j = 0; j < gen.length; j++){
+          res[i+j] ^= gmul(gen[j], coef);
+        }
+      }
+    }
+    return res.slice(data.length);
+  }
+
+  // ---- tabela de capacidade (byte mode, EC level M) por versao ----
+  // [versao] = {cap: bytes de dados, ecPerBlock, blocks: [[count, dataCodewords],...], totalCw}
+  var VERSIONS = {
+    1:{tot:26,ec:10,grp:[[1,16]]},
+    2:{tot:44,ec:16,grp:[[1,28]]},
+    3:{tot:70,ec:26,grp:[[1,44]]},
+    4:{tot:100,ec:18,grp:[[2,32]]},
+    5:{tot:134,ec:24,grp:[[2,43]]},
+    6:{tot:172,ec:16,grp:[[4,27]]},
+    7:{tot:196,ec:18,grp:[[4,31]]},
+    8:{tot:242,ec:22,grp:[[2,38],[2,39]]},
+    9:{tot:292,ec:22,grp:[[3,36],[2,37]]},
+    10:{tot:346,ec:26,grp:[[4,43],[1,44]]}
+  };
+
+  function capacityBytes(v){
+    var info = VERSIONS[v];
+    var dataCw = 0;
+    for (var i=0;i<info.grp.length;i++) dataCw += info.grp[i][0]*info.grp[i][1];
+    // 2 bytes overhead: mode(4b)+length(8b)+terminator ~ aprox; subtrai 2 p/ folga
+    return dataCw - 2;
+  }
+
+  function chooseVersion(len){
+    for (var v=1; v<=10; v++){
+      if (capacityBytes(v) >= len) return v;
+    }
+    throw new Error('URL longa demais para QR v<=10');
+  }
+
+  // ---- BitBuffer ----
+  function BitBuffer(){ this.buf=[]; this.len=0; }
+  BitBuffer.prototype.put = function(num,bits){
+    for (var i=0;i<bits;i++) this.putBit(((num>>>(bits-i-1))&1)===1);
+  };
+  BitBuffer.prototype.putBit = function(bit){
+    var idx = Math.floor(this.len/8);
+    if (this.buf.length<=idx) this.buf.push(0);
+    if (bit) this.buf[idx] |= (0x80>>>(this.len%8));
+    this.len++;
+  };
+
+  // ---- monta os codewords de dados (byte mode) ----
+  function makeData(str, version){
+    var info = VERSIONS[version];
+    var bytes = [];
+    for (var i=0;i<str.length;i++){
+      var c = str.charCodeAt(i);
+      if (c < 128){ bytes.push(c); }
+      else { // UTF-8
+        var enc = unescape(encodeURIComponent(str.charAt(i)));
+        for (var k=0;k<enc.length;k++) bytes.push(enc.charCodeAt(k));
+      }
+    }
+    var bb = new BitBuffer();
+    bb.put(4, 4);                 // mode: byte
+    bb.put(bytes.length, 8);      // length (8 bits p/ v1-9; v10 usa 16, tratamos abaixo)
+    if (version >= 10){
+      // refaz com 16 bits de length
+      bb = new BitBuffer();
+      bb.put(4,4);
+      bb.put(bytes.length,16);
+    }
+    for (var i=0;i<bytes.length;i++) bb.put(bytes[i],8);
+
+    var dataCw = 0;
+    for (var g=0;g<info.grp.length;g++) dataCw += info.grp[g][0]*info.grp[g][1];
+    var totalDataBits = dataCw*8;
+    // terminator
+    for (var i=0;i<4 && bb.len<totalDataBits;i++) bb.putBit(false);
+    // pad ate byte
+    while (bb.len%8 !== 0) bb.putBit(false);
+    // pad bytes
+    var padBytes = [0xEC,0x11], pi=0;
+    while (bb.buf.length < dataCw){ bb.buf.push(padBytes[pi%2]); pi++; }
+
+    // divide em blocos, calcula EC
+    var dataBlocks=[], ecBlocks=[], pos=0;
+    for (var g=0; g<info.grp.length; g++){
+      for (var b=0;b<info.grp[g][0];b++){
+        var cnt = info.grp[g][1];
+        var blk = bb.buf.slice(pos,pos+cnt); pos+=cnt;
+        dataBlocks.push(blk);
+        ecBlocks.push(rsEncode(blk, info.ec));
+      }
+    }
+    // interleave
+    var result=[];
+    var maxData = Math.max.apply(null, dataBlocks.map(function(b){return b.length;}));
+    for (var i=0;i<maxData;i++)
+      for (var b=0;b<dataBlocks.length;b++)
+        if (i<dataBlocks[b].length) result.push(dataBlocks[b][i]);
+    for (var i=0;i<info.ec;i++)
+      for (var b=0;b<ecBlocks.length;b++)
+        result.push(ecBlocks[b][i]);
+    return result;
+  }
+
+  // ---- matriz do QR ----
+  function QRMatrix(version){
+    this.version = version;
+    this.size = version*4 + 17;
+    this.modules = [];
+    for (var r=0;r<this.size;r++){
+      this.modules.push(new Array(this.size).fill(null));
+    }
+  }
+  QRMatrix.prototype.setupFinder = function(row,col){
+    for (var r=-1;r<=7;r++){
+      for (var c=-1;c<=7;c++){
+        var rr=row+r, cc=col+c;
+        if (rr<0||rr>=this.size||cc<0||cc>=this.size) continue;
+        var on = (0<=r&&r<=6&&(c===0||c===6)) ||
+                 (0<=c&&c<=6&&(r===0||r===6)) ||
+                 (2<=r&&r<=4&&2<=c&&c<=4);
+        this.modules[rr][cc] = on;
+      }
+    }
+  };
+  QRMatrix.prototype.setupTiming = function(){
+    for (var i=8;i<this.size-8;i++){
+      if (this.modules[6][i]===null) this.modules[6][i] = (i%2===0);
+      if (this.modules[i][6]===null) this.modules[i][6] = (i%2===0);
+    }
+  };
+  // posicoes de alignment pattern por versao
+  var ALIGN = {1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],
+               7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50]};
+  QRMatrix.prototype.setupAlignment = function(){
+    var pos = ALIGN[this.version];
+    for (var i=0;i<pos.length;i++){
+      for (var j=0;j<pos.length;j++){
+        var r=pos[i], c=pos[j];
+        if (this.modules[r][c]!==null) continue;
+        for (var dr=-2;dr<=2;dr++){
+          for (var dc=-2;dc<=2;dc++){
+            this.modules[r+dr][c+dc] =
+              (Math.max(Math.abs(dr),Math.abs(dc))!==1);
+          }
+        }
+      }
+    }
+  };
+  QRMatrix.prototype.reserveFormat = function(){
+    for (var i=0;i<9;i++){
+      if (this.modules[8][i]===null) this.modules[8][i]=false;
+      if (this.modules[i][8]===null) this.modules[i][8]=false;
+    }
+    for (var i=0;i<8;i++){
+      if (this.modules[8][this.size-1-i]===null) this.modules[8][this.size-1-i]=false;
+      if (this.modules[this.size-1-i][8]===null) this.modules[this.size-1-i][8]=false;
+    }
+    this.modules[this.size-8][8]=true; // dark module
+  };
+
+  // BCH p/ format info (EC level M = 00, mask)
+  function bchFormat(data){
+    var d = data<<10;
+    var g = 0x537;
+    while ((function(x){var b=-1;while(x){b++;x>>>=1;}return b;})(d) >= (function(x){var b=-1;while(x){b++;x>>>=1;}return b;})(g)){
+      d ^= g << ((function(x){var b=-1;while(x){b++;x>>>=1;}return b;})(d) - (function(x){var b=-1;while(x){b++;x>>>=1;}return b;})(g));
+    }
+    return ((data<<10)|d) ^ 0x5412;
+  }
+
+  QRMatrix.prototype.placeFormat = function(maskId){
+    var fmt = bchFormat((0<<3)|maskId); // 0 = EC level M
+    for (var i=0;i<15;i++){
+      var bit = ((fmt>>>i)&1)===1;
+      // copia 1
+      if (i<6) this.modules[i][8]=bit;
+      else if (i<8) this.modules[i+1][8]=bit;
+      else if (i===8) this.modules[8][7]=bit;
+      else this.modules[8][14-i]=bit;
+      // copia 2
+      if (i<8) this.modules[8][this.size-1-i]=bit;
+      else this.modules[this.size-15+i][8]=bit;
+    }
+  };
+
+  function maskFn(id,r,c){
+    switch(id){
+      case 0: return (r+c)%2===0;
+      case 1: return r%2===0;
+      case 2: return c%3===0;
+      case 3: return (r+c)%3===0;
+      case 4: return (Math.floor(r/2)+Math.floor(c/3))%2===0;
+      case 5: return (r*c)%2 + (r*c)%3 === 0;
+      case 6: return ((r*c)%2 + (r*c)%3)%2===0;
+      case 7: return ((r+c)%2 + (r*c)%3)%2===0;
+    }
+    return false;
+  }
+
+  QRMatrix.prototype.mapData = function(data, maskId){
+    var bitIdx=0, size=this.size;
+    var dirUp=true;
+    for (var col=size-1; col>0; col-=2){
+      if (col===6) col--; // pula coluna de timing
+      for (var i=0;i<size;i++){
+        var row = dirUp ? size-1-i : i;
+        for (var cc=0;cc<2;cc++){
+          var c = col-cc;
+          if (this.modules[row][c]!==null) continue;
+          var dark=false;
+          if (bitIdx < data.length*8){
+            var byteV = data[bitIdx>>>3];
+            dark = ((byteV>>>(7-(bitIdx&7)))&1)===1;
+          }
+          if (maskFn(maskId,row,c)) dark = !dark;
+          this.modules[row][c]=dark;
+          bitIdx++;
+        }
+      }
+      dirUp=!dirUp;
+    }
+  };
+
+  function generate(text){
+    var version = chooseVersion(
+      (unescape(encodeURIComponent(text))).length
+    );
+    var data = makeData(text, version);
+    var qr = new QRMatrix(version);
+    qr.setupFinder(0,0);
+    qr.setupFinder(0,qr.size-7);
+    qr.setupFinder(qr.size-7,0);
+    qr.setupAlignment();
+    qr.setupTiming();
+    qr.reserveFormat();
+    var maskId = 0; // mascara fixa 0 (suficiente p/ leitura confiavel)
+    qr.mapData(data, maskId);
+    qr.placeFormat(maskId);
+    return qr;
+  }
+
+  // ---- API publica: desenha em canvas ----
+  function toCanvas(canvas, text, opts){
+    opts = opts || {};
+    var px = opts.size || 240;
+    var margin = opts.margin!=null ? opts.margin : 4;
+    var qr = generate(text);
+    var n = qr.size;
+    var total = n + margin*2;
+    var scale = Math.floor(px/total) || 1;
+    var dim = scale*total;
+    canvas.width = dim;
+    canvas.height = dim;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = opts.light || '#ffffff';
+    ctx.fillRect(0,0,dim,dim);
+    ctx.fillStyle = opts.dark || '#000000';
+    for (var r=0;r<n;r++){
+      for (var c=0;c<n;c++){
+        if (qr.modules[r][c]){
+          ctx.fillRect((c+margin)*scale,(r+margin)*scale,scale,scale);
+        }
+      }
+    }
+    return canvas;
+  }
+
+  global.SimpleQR = { toCanvas: toCanvas, generate: generate };
+})(typeof window!=='undefined'?window:this);
+
+</script>
+
+<!-- ===== three.js for the GLB viewer ===== -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ---------- config ----------
+const GLB_URL  = './poster.glb';
+const HDRI_URL = './studio.hdr';
+const AR_URL   = new URL('ar.html', location.href).href;
+
+// ---------- gallery: thumbs ----------
+const stage     = document.getElementById('stage');
+const posterMain= document.getElementById('posterMain');
+const thumbs    = Array.from(document.querySelectorAll('.thumb'));
+let viewerStarted = false;
+
+thumbs.forEach(t => {
+  t.addEventListener('click', ()=>{
+    thumbs.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    if (t.dataset.mode === 'image'){
+      stage.classList.remove('is3d');
+      posterMain.src = t.dataset.img;
+    } else {
+      stage.classList.add('is3d');
+      startViewer();
+    }
+  });
+});
+
+// ---------- QR modal ----------
+const modalBg = document.getElementById('modalBg');
+document.getElementById('viewerQrBtn').addEventListener('click', openModal);
+document.getElementById('modalClose').addEventListener('click', ()=> modalBg.classList.remove('open'));
+modalBg.addEventListener('click', e => { if (e.target === modalBg) modalBg.classList.remove('open'); });
+document.getElementById('openDirect').addEventListener('click', ()=> location.href = AR_URL);
+
+let qrDrawn = false;
+function openModal(){
+  modalBg.classList.add('open');
+  if (!qrDrawn){
+    try {
+      const c = document.createElement('canvas');
+      SimpleQR.toCanvas(c, AR_URL, { size:186, margin:3 });
+      const box = document.getElementById('qrbox');
+      box.innerHTML = ''; box.appendChild(c);
+      qrDrawn = true;
+    } catch(e){
+      document.getElementById('qrbox').innerHTML =
+        '<span style="font-size:11px;color:#c0392b;">QR error</span>';
+    }
+  }
+}
+
+// ---------- 3D viewer ----------
+let renderer, scene, camera, controls;
+
+function startViewer(){
+  if (viewerStarted) return;
+  viewerStarted = true;
+
+  const canvas = document.getElementById('viewer3d');
+  const w = stage.clientWidth, h = stage.clientHeight;
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(w, h, false);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(35, w/h, 0.01, 100);
+  camera.position.set(0, 0, 1.6);
+
+  controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.enablePan = false;
+  controls.minDistance = 0.7;
+  controls.maxDistance = 3.0;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 1.4;
+  // stop auto-rotate once the user grabs it
+  controls.addEventListener('start', ()=>{ controls.autoRotate = false; });
+
+  // lights (complement the HDRI environment)
+  const key = new THREE.DirectionalLight(0xffffff, 1.4);
+  key.position.set(2, 3, 4);
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+  fill.position.set(-3, 1, -2);
+  scene.add(fill);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+
+  // immediate fallback environment so it never looks flat while HDRI loads
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+  // load the real HDRI for high-quality reflections/lighting
+  new RGBELoader().load(HDRI_URL, hdr => {
+    hdr.mapping = THREE.EquirectangularReflectionMapping;
+    const env = pmrem.fromEquirectangular(hdr).texture;
+    scene.environment = env;
+    hdr.dispose(); pmrem.dispose();
+  }, undefined, ()=>{ /* keep RoomEnvironment fallback on error */ });
+
+  // load the poster GLB
+  new GLTFLoader().load(GLB_URL, gltf => {
+    const model = gltf.scene;
+    // center + frame the model nicely
+    const box = new THREE.Box3().setFromObject(model);
+    const center = new THREE.Vector3(); box.getCenter(center);
+    const size = new THREE.Vector3(); box.getSize(size);
+    model.position.sub(center);
+    // fit camera distance to the model height
+    const maxDim = Math.max(size.x, size.y);
+    camera.position.set(0, 0, maxDim * 2.4);
+    controls.minDistance = maxDim * 1.2;
+    controls.maxDistance = maxDim * 5;
+    controls.update();
+    // give the poster a subtle material polish
+    model.traverse(o => {
+      if (o.isMesh && o.material){
+        o.material.envMapIntensity = 1.15;
+        o.material.needsUpdate = true;
+      }
+    });
+    scene.add(model);
+  }, undefined, err => {
+    console.error('GLB load failed', err);
+  });
+
+  addEventListener('resize', onResize);
+  renderer.setAnimationLoop(()=>{
+    controls.update();
+    renderer.render(scene, camera);
+  });
+}
+
+function onResize(){
+  if (!renderer) return;
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+</script>
+</body>
+</html>

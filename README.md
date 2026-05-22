@@ -1,116 +1,73 @@
 # AR Try-On de Parede — protótipo
 
-Try-on em AR para projetar quadros/posters na parede, com tracking de
-superfície vertical e escala real, via **WebXR**. Funciona em **Android + Chrome**.
+Try-on em AR para projetar quadros/posters na parede (Android + Chrome),
+agora com uma página de produto réplica do site AllPosters.
 
-## Estrutura dos arquivos
-
-Os 4 arquivos vão **todos juntos na raiz** do repositório, sem subpastas:
+## Arquivos (todos juntos na raiz do repositório)
 
     ar-tryon/
-    ├── index.html      <- página com o QR code (gerador embutido, sem CDN)
-    ├── ar.html         <- a experiência de AR (WebXR)
-    ├── poster.glb      <- modelo 3D do pôster
-    └── vercel.json     <- faz o Vercel servir o .glb corretamente
+    ├── product.html      <- página de produto (réplica AllPosters) + viewer 3D
+    ├── ar.html           <- experiência de AR (WebXR)
+    ├── index.html        <- página simples só com o QR (versão antiga, opcional)
+    ├── poster.glb         <- modelo 3D do pôster
+    ├── studio.hdr         <- HDRI para iluminação do viewer 3D
+    ├── poster_image.jpg   <- imagem do pôster (thumb 1 / imagem principal)
+    ├── poster_thumb.jpg   <- miniatura do pôster
+    ├── room1/2/3.jpg      <- miniaturas estáticas (cenas de quarto)
+    └── vercel.json        <- MIME types corretos para .glb e .hdr
 
-## Novidades desta versão
+A página principal agora é a **product.html**. O index.html antigo (só QR)
+pode ser mantido ou removido — não é mais necessário.
 
-- **Textos em inglês** em toda a interface.
-- **3 botões de tamanho** no estilo do site AllPosters, no canto inferior
-  da câmera (acima do botão de fechar, sem sobrepor):
-  - 13" × 19"  (≈ 33,0 × 48,3 cm)
-  - 15" × 22"  (≈ 38,1 × 55,9 cm)
-  - 22" × 34"  (≈ 55,9 × 86,4 cm) — padrão, igual ao GLB atual
-- O botão selecionado fica com fundo **azul** (o mesmo tom do print do site);
-  os demais ficam brancos.
-- Ao trocar de tamanho, o quadro **permanece no mesmo ponto da parede** e
-  escala a partir do centro (o ponto onde foi fixado não se move).
+## product.html — o que é interativo
 
-## Como o redimensionamento funciona (sem precisar de 3 GLBs)
+A página replica a parte superior da página de produto do AllPosters.
+Quase tudo é estático (botões, preço, frames) — propositalmente. Só dois
+elementos funcionam:
 
-Os 3 tamanhos usam **o mesmo GLB**. O código mede o tamanho nativo do
-modelo e aplica um fator de escala para cada medida em polegadas. A pose
-na parede (posição + rotação) é guardada separada da escala, então mudar
-de tamanho só reescala o quadro — o centro fica cravado no lugar.
+1. **As 5 miniaturas (thumbs).** As 4 primeiras trocam a imagem principal.
+   A 5ª (ícone 3D/AR) abre um **viewer 3D** no lugar da imagem: o GLB do
+   pôster renderizado com three.js, iluminação HDRI e reflexos, que você
+   gira arrastando com o dedo/mouse.
 
-Se algum dia quiser tamanhos com arte diferente por proporção, dá para
-trocar por GLBs separados, mas para os 3 tamanhos atuais não é necessário.
+2. **Botão "View in your room (AR)"** dentro do viewer 3D → abre uma
+   janela com o **QR code**. Escaneando, abre o ar.html (o AR de parede).
 
-Para editar os tamanhos, veja a tabela `SIZES` no topo do `ar.html`.
+O viewer 3D usa: HDRI real para iluminação ambiente, tone mapping
+ACES Filmic, luzes direcionais de apoio e reflexos no material do quadro.
 
-## Deploy com GitHub Desktop + Vercel
+## Correção desta versão
 
-1. GitHub Desktop: **New Repository**, escolha uma pasta.
-2. Copie os 4 arquivos para a raiz dessa pasta.
-3. **Commit** e **Publish repository**.
-4. vercel.com: **Add New > Project**, importe o repositório.
-5. Framework Preset: **Other**. Sem build. **Deploy**.
-6. URL `https://...vercel.app` — já é HTTPS.
+**Mudar de tamanho movia o pôster.** Quando o pôster já estava fixado e
+você tocava num botão de tamanho, o toque também disparava o evento
+'select' do WebXR — que re-posicionava o pôster onde a mira apontava.
+Corrigido com um "guard": qualquer toque num botão da interface abre uma
+janela de 400 ms na qual o onSelect ignora o 'select'. Agora trocar de
+tamanho só re-escala no lugar, como deveria.
 
-Ao trocar arquivos: novo **commit** no GitHub Desktop, o Vercel redeploya.
-No celular, use recarregar forçado ou aba anônima para evitar cache.
+**Painel de LOG escondido.** O motor de debug continua rodando por baixo
+(é barato), mas o botão LOG e o painel ficam ocultos. Para reativar:
+em ar.html, remova a classe "hidden" do botão #showLogBtn.
 
-## Painel de debug (LOG)
+## HDRI
 
-Botão **LOG** no canto superior esquerdo dentro do AR. Mostra em tempo
-real: inicialização do WebXR/hit-test, superfícies detectadas por frame,
-a normal de cada uma e se passou no filtro de parede, e cada transição
-de estado. Toque em **Copy log** para copiar e colar no chat.
+O HDRI original (glasshouse interior, 15 MB) foi otimizado para 1 K
+(studio.hdr, ~1,3 MB) — pesado demais para web na resolução cheia. A
+qualidade da iluminação praticamente não muda, pois o ambiente aparece
+desfocado nos reflexos. three.js carrega o .hdr nativamente (RGBELoader).
 
-## Correções desta versão (análise do log)
+## Deploy (GitHub Desktop + Vercel)
 
-**Pôster voando à frente da parede** — corrigido. Havia dois erros: o
-deslocamento da parede (WALL_OFFSET) era aplicado duas vezes (no reticle
-e no quadro), e a escala dos tamanhos era multiplicada na matriz de pose,
-amplificando deslocamentos internos do modelo. Agora a escala é aplicada
-via posterModel.scale (propriedade do three.js) e o offset é aplicado uma
-única vez, como distância fixa de 1,5 cm ao longo da normal da parede.
-
-**Comportamento de posicionamento — congelamento puro.**
-
-Antes de fixar: o reticle e o contorno seguem a superfície em tempo real.
-Mirou na parede, posiciona na parede; mirou na lateral de um móvel, o
-quadro gira para o ângulo daquela superfície. Busca contínua.
-
-Depois de fixar (toque): o quadro CONGELA. A pose é gravada uma vez e o
-quadro fica 100% imóvel no mundo — nada o move até apertar Reposition. O
-ARCore continua rastreando a câmera, então o quadro congelado "permanece
-lá" corretamente conforme você gira o celular, como um objeto real.
-
-As âncoras WebXR foram REMOVIDAS de propósito. A função da âncora é
-reajustar o objeto conforme o ARCore corrige o mapa — o oposto de "trava
-total". Em ambiente cheio de objetos, era esse reajuste que causava os
-saltos. Congelamento puro é mais simples e mais estável, e é o certo
-para gravar o vídeo.
-
-Os botões de tamanho, com o quadro travado, trocam o tamanho NO MESMO
-LUGAR (escala a partir do centro) — não re-miram. Para mover o quadro,
-use Reposition.
-
-**Tracking / detecção.** A suavização do reticle (segura a última pose
-600 ms, interpola suave) continua. A detecção em parede lisa à noite é
-limitação física do ARCore — filmar com boa luz e com algum detalhe na
-parede por perto ajuda bastante.
-
-Limitação honesta: a dificuldade de achar parede à noite / em parede lisa
-é física do ARCore (precisa de contraste visual). O código suaviza o
-resultado, mas não cria pontos de tracking onde não há. Filmar com boa
-luz e ter algum detalhe na parede (quadro, móvel) continua ajudando.
-
-## Ajuste de tracking (se necessário)
-
-- `VERTICAL_DOT_MIN` (0.82): se recusar paredes válidas, baixe p/ ~0.70.
-  Se aceitar o chão, suba p/ ~0.90.
-- `WALL_OFFSET` (0.012 m): distância do quadro para fora da parede.
-
-A detecção ocasionalmente falha em paredes muito lisas/uniformes — é
-limitação do ARCore (poucos pontos de textura). Mover o celular devagar
-e ter algum detalhe na parede ajuda.
+1. Substitua/adicione todos os arquivos na raiz do repositório.
+2. Commit + push no GitHub Desktop.
+3. Vercel redeploya sozinho.
+4. Abra .../product.html — é a nova página principal.
+5. No celular, use recarregar forçado / aba anônima (cache).
 
 ## Limitações conhecidas
 
-- **iPhone não funciona**: Safari não suporta WebXR AR.
-- O `ar.html` carrega o three.js do CDN unpkg.com. Se falhar, é possível
-  servir uma cópia local — peça o ajuste.
-- A textura do GLB é um pôster licenciado (Star Wars). Ok para teste e
-  pitch interno; troque por arte licenciada ao cliente antes de uso público.
+- iPhone não roda o AR (Safari não suporta WebXR AR).
+- ar.html e product.html carregam o three.js do CDN unpkg.com.
+- Detecção de parede depende de boa luz e de algum detalhe na parede.
+- A textura do pôster é licenciada (Star Wars) — ok para protótipo e
+  pitch interno; troque por arte licenciada antes de uso público.

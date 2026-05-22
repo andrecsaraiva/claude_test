@@ -132,8 +132,8 @@
   <button id="exitBtn">✕</button>
   <div id="toast"></div>
 
-  <!-- ===== debug panel ===== -->
-  <div id="debugPanel">
+  <!-- ===== debug panel (hidden by default — DBG engine still runs) ===== -->
+  <div id="debugPanel" class="hidden">
     <div id="debugLog"></div>
     <div id="debugBtns">
       <button class="dbg" id="copyLogBtn">Copy log</button>
@@ -141,7 +141,7 @@
       <button class="dbg" id="hideLogBtn">Hide</button>
     </div>
   </div>
-  <button id="showLogBtn">LOG</button>
+  <button id="showLogBtn" class="hidden">LOG</button>
 
   <!-- ===== size picker ===== -->
   <div id="sizeBar">
@@ -274,6 +274,12 @@ let toastTimer = null;
 // poster correctly "stays there" in the world as the phone rotates.
 let placedPose = new THREE.Matrix4();
 let posterTargetPose = new THREE.Matrix4();
+
+// UI tap guard: tapping a DOM-overlay button also fires a WebXR 'select'.
+// markUITap() opens a short window during which onSelect ignores selects,
+// so tapping a size button never re-places the poster.
+let uiTapUntil = 0;
+function markUITap(){ uiTapUntil = performance.now() + 400; }
 
 // tracking smoothing state (constants live near the render loop):
 // the ARCore hit-test flickers on plain/dim walls — drops to 0 hits for
@@ -416,8 +422,11 @@ function applySize(idx, fromUser){
 // size button clicks
 sizeBtns.forEach(btn => {
   btn.addEventListener('click', ()=> {
+    markUITap();                       // block the leaking WebXR select
     applySize(Number(btn.dataset.size), true);
   });
+  // also mark on pointerdown — the select can fire before click
+  btn.addEventListener('pointerdown', markUITap);
 });
 
 // ---- start WebXR session ----
@@ -496,9 +505,12 @@ function onSessionEnd(){
   DBG.push('AR session ended — the log above can still be copied');
 }
 
+exitBtn.addEventListener('pointerdown', markUITap);
 exitBtn.addEventListener('click', ()=> xrSession && xrSession.end());
 
+resetBtn.addEventListener('pointerdown', markUITap);
 resetBtn.addEventListener('click', ()=>{
+  markUITap();
   if (posterModel){ scene.remove(posterModel); posterModel = null; }
   posterPlaced = false;
   reticle.visible = false;
@@ -670,7 +682,19 @@ function applyPoseToPoster(poseMatrix){
 // store it in posterTargetPose. Nothing ever moves the poster again until
 // Reposition is pressed. ARCore keeps tracking the camera, so the frozen
 // poster correctly stays in place in the world as the phone rotates.
+//
+// IMPORTANT — UI tap guard: tapping a DOM-overlay button (size buttons,
+// Reposition, etc.) ALSO triggers the WebXR 'select' event. Without a
+// guard, tapping a size button would re-run placement and move the poster
+// to wherever the reticle points. uiTapUntil (declared near the top)
+// records a short window after any UI-control tap; onSelect ignores
+// selects that fall inside it.
 function onSelect(){
+  // ignore selects that are really UI-button taps
+  if (performance.now() < uiTapUntil){
+    DBG.push('select ignored — was a UI button tap');
+    return;
+  }
   DBG.push('TAP on screen. reticle.visible=' + reticle.visible);
   if (!reticle.visible) {
     toast('Point at a wall first');
