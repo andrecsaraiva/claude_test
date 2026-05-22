@@ -57,6 +57,30 @@
     font-size: 12px; opacity: 0; transition: opacity .25s; white-space: nowrap;
   }
 
+  /* ===== size picker (estilo AllPosters) ===== */
+  #sizeBar {
+    position: absolute; left: 0; right: 0;
+    bottom: calc(env(safe-area-inset-bottom, 16px) + 70px);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    pointer-events: none;
+  }
+  #sizeLabel {
+    font-size: 12px; font-weight: 600; color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9); letter-spacing: 0.3px;
+  }
+  #sizeBtns { display: flex; gap: 8px; pointer-events: auto; }
+  .size-btn {
+    min-width: 78px; padding: 11px 10px;
+    font-size: 13px; font-weight: 600; text-align: center;
+    background: #ffffff; color: #1a1a1a;
+    border: 1px solid #cfcfcf; border-radius: 4px; cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .size-btn:active { transform: scale(0.97); }
+  .size-btn.active {
+    background: #29c5e8; color: #ffffff; border-color: #29c5e8;
+  }
+
   /* ===== painel de debug ===== */
   #debugPanel {
     position: absolute; left: 8px; right: 8px;
@@ -106,8 +130,8 @@
   <button id="exitBtn">✕</button>
   <div id="toast"></div>
 
-  <!-- ===== painel de DEBUG ===== -->
-  <div id="debugPanel">
+  <!-- ===== painel de DEBUG (oculto — motor DBG continua rodando) ===== -->
+  <div id="debugPanel" class="hidden">
     <div id="debugLog"></div>
     <div id="debugBtns">
       <button class="dbg" id="copyLogBtn">Copiar log</button>
@@ -115,7 +139,17 @@
       <button class="dbg" id="hideLogBtn">Ocultar</button>
     </div>
   </div>
-  <button id="showLogBtn">LOG</button>
+  <button id="showLogBtn" class="hidden">LOG</button>
+
+  <!-- ===== size picker ===== -->
+  <div id="sizeBar">
+    <div id="sizeLabel">Choose size</div>
+    <div id="sizeBtns">
+      <button class="size-btn" data-size="0">13" × 19"</button>
+      <button class="size-btn" data-size="1">15" × 22"</button>
+      <button class="size-btn active" data-size="2">22" × 34"</button>
+    </div>
+  </div>
 
   <div id="bottomBar">
     <button class="pill hidden" id="resetBtn">Reposicionar</button>
@@ -160,6 +194,16 @@ const MODEL_REAL_SIZE = null;
 // Resolve GLBs exportados com a origem num canto. Quase sempre true.
 // (Neste GLB a origem ja esta no centro, mas manter true nao atrapalha.)
 const MODEL_AUTOCENTER = true;
+
+// --- Tamanhos do poster (3 botoes) ---
+// Tamanhos em polegadas convertidos p/ metros (1in = 0.0254 m).
+// O botao 3 (22x34) corresponde ao tamanho nativo do GLB.
+const SIZES = [
+  { label: '13" x 19"', w: 13 * 0.0254, h: 19 * 0.0254 },
+  { label: '15" x 22"', w: 15 * 0.0254, h: 22 * 0.0254 },
+  { label: '22" x 34"', w: 22 * 0.0254, h: 34 * 0.0254 }
+];
+let currentSizeIndex = 2;   // padrao = botao 3
 
 // --- Tracking ---
 const WALL_OFFSET = 0.012;   // distancia (m) do quadro p/ fora da parede (evita z-fighting)
@@ -233,10 +277,21 @@ document.getElementById('copyLogBtn').addEventListener('click', async ()=>{
 
 let renderer, scene, camera;
 let reticle, sizePreview, posterModel, posterPlaced = false;
+let posterInner = null;        // o GLB clonado, dentro do wrapper posterModel
 let xrSession = null, xrRefSpace = null, viewerSpace = null;
 let hitTestSource = null;
 let modelTemplate = null;     // GLB carregado, clonado ao fixar
 let toastTimer = null;
+
+// tamanho NATIVO do GLB (m), medido em normalizeModel. Os botoes de
+// tamanho escalam o modelo a partir deste valor.
+let nativeSize = { width: 0.6, height: 0.9, depth: 0.02 };
+
+// guard de toque na UI: tocar num botao do overlay tambem dispara o
+// evento 'select' do WebXR. markUITap() abre uma janela curta na qual
+// o onSelect ignora o select — assim mudar de tamanho nunca reposiciona.
+let uiTapUntil = 0;
+function markUITap(){ uiTapUntil = performance.now() + 400; }
 
 function setStatus(t){ statusEl.textContent = t; }
 function toast(t){
@@ -337,6 +392,7 @@ function normalizeModel(root){
   }
 
   posterSize = { width: size2.x, height: size2.y, depth: size2.z };
+  nativeSize = { width: size2.x, height: size2.y, depth: size2.z };
   console.log('[AR] quadro normalizado (m):', posterSize,
               ' eixo fino detectado:', ['X','Y','Z'][thinAxis]);
   return scaled;
@@ -359,7 +415,8 @@ startBtn.addEventListener('click', async ()=>{
 
 async function startAR(){
   initThree();
-  refreshSizePreview();  // agora posterSize ja reflete o GLB carregado
+  // aplica o tamanho padrao (botao 3) — atualiza posterSize + preview
+  selectSize(currentSizeIndex);
   try {
     xrSession = await navigator.xr.requestSession('immersive-ar', {
       requiredFeatures: ['hit-test'],
@@ -412,14 +469,48 @@ function onSessionEnd(){
   DBG.push('sessao AR encerrada — o log acima pode ser copiado');
 }
 
+exitBtn.addEventListener('pointerdown', markUITap);
 exitBtn.addEventListener('click', ()=> xrSession && xrSession.end());
 
+resetBtn.addEventListener('pointerdown', markUITap);
 resetBtn.addEventListener('click', ()=>{
+  markUITap();
   if (posterModel){ scene.remove(posterModel); posterModel = null; }
+  posterInner = null;
   posterPlaced = false;
   reticle.visible = false;
   resetBtn.classList.add('hidden');
   setStatus('Procurando parede… mova o celular devagar');
+});
+
+// ---- botoes de tamanho ----
+// Aplicam o tamanho escolhido. Se o quadro JA esta fixado, escalam o
+// modelo interno NO LUGAR (sem mexer na pose congelada do wrapper). Se
+// ainda nao foi fixado, so atualizam o contorno de preview.
+const sizeBtns = Array.from(document.querySelectorAll('.size-btn'));
+function selectSize(idx){
+  currentSizeIndex = idx;
+  sizeBtns.forEach(b => b.classList.toggle('active', Number(b.dataset.size) === idx));
+  // atualiza posterSize p/ o contorno de preview refletir o tamanho
+  posterSize = {
+    width: SIZES[idx].w,
+    height: SIZES[idx].h,
+    depth: nativeSize.depth
+  };
+  refreshSizePreview();
+  // se o quadro ja esta na parede, so reescala o modelo interno
+  if (posterPlaced && posterInner){
+    applySizeToInner(idx);
+  }
+  toast(SIZES[idx].label);
+  DBG.push('tamanho -> ' + SIZES[idx].label, 'ok');
+}
+sizeBtns.forEach(btn => {
+  btn.addEventListener('pointerdown', markUITap);
+  btn.addEventListener('click', ()=>{
+    markUITap();
+    selectSize(Number(btn.dataset.size));
+  });
 });
 
 // ---- three.js setup ----
@@ -560,14 +651,27 @@ function poseOnWall(hitMatrix){
 const _placeMat = new THREE.Matrix4();
 const _offMat = new THREE.Matrix4();
 function onSelect(){
+  // ignora toques que sao na verdade cliques em botoes da UI
+  if (performance.now() < uiTapUntil){
+    DBG.push('select ignorado — foi toque em botao da UI');
+    return;
+  }
   DBG.push('TOQUE na tela. reticle.visible=' + reticle.visible);
   if (!reticle.visible) {
     toast('Aponte para uma parede primeiro');
     return;
   }
   if (!posterModel){
-    posterModel = modelTemplate.clone(true);
+    // posterModel = wrapper EXTERNO que carrega a pose congelada da parede
+    // (exatamente como na V1). O modelo GLB vai DENTRO dele (posterInner),
+    // e e o posterInner que recebe a escala dos botoes de tamanho.
+    // Assim a matriz congelada do wrapper NUNCA e tocada ao mudar tamanho
+    // -> o tracking continua identico ao da V1.
+    posterModel = new THREE.Group();
+    posterInner = modelTemplate.clone(true);
+    posterModel.add(posterInner);
     scene.add(posterModel);
+    applySizeToInner(currentSizeIndex);   // aplica o tamanho atual
   }
   posterModel.matrixAutoUpdate = false;
   // reticle.matrix esta rente a parede. O quadro tem espessura, entao
@@ -581,6 +685,19 @@ function onSelect(){
   setStatus('Quadro fixado — toque em outro ponto para mover');
   toast('Quadro posicionado em escala real');
   DBG.push('quadro FIXADO na parede', 'ok');
+}
+
+// Aplica o tamanho selecionado SO no modelo interno (escala X e Y a partir
+// do centro). Nunca toca na matriz congelada do wrapper -> nao move o
+// quadro, so muda o tamanho no lugar.
+function applySizeToInner(idx){
+  if (!posterInner) return;
+  const s = SIZES[idx];
+  // fatores relativos ao tamanho nativo do GLB (medido em normalizeModel)
+  const fx = s.w / nativeSize.width;
+  const fy = s.h / nativeSize.height;
+  // origem do modelo esta no centro -> escalar X/Y escala a partir do centro
+  posterInner.scale.set(fx, fy, 1);
 }
 
 // ---- loop de render ----
