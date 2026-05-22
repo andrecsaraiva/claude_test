@@ -57,6 +57,33 @@ real: inicialização do WebXR/hit-test, superfícies detectadas por frame,
 a normal de cada uma e se passou no filtro de parede, e cada transição
 de estado. Toque em **Copy log** para copiar e colar no chat.
 
+## Correções desta versão (análise do log)
+
+**Pôster voando à frente da parede** — corrigido. Havia dois erros: o
+deslocamento da parede (WALL_OFFSET) era aplicado duas vezes (no reticle
+e no quadro), e a escala dos tamanhos era multiplicada na matriz de pose,
+amplificando deslocamentos internos do modelo. Agora a escala é aplicada
+via posterModel.scale (propriedade do three.js) e o offset é aplicado uma
+única vez, como distância fixa de 1,5 cm ao longo da normal da parede.
+
+**Tracking instável / pisca** — melhorado dentro do possível:
+
+- Suavização: mantém a última pose válida por 600 ms após uma falha
+  momentânea (em vez de sumir no primeiro frame ruim) e interpola suave,
+  então o reticle desliza em vez de piscar.
+- Hit-test pede preferência por planos (mais estável que pontos soltos).
+- Âncoras WebXR: ao fixar o quadro, é criada uma XRAnchor. O ARCore passa
+  a gerenciar esse ponto e o reposiciona conforme refina o mapa do
+  ambiente — o quadro fica "cravado" na parede em vez de derivar. O
+  painel de LOG mostra "anchor created" quando funciona.
+
+O offset do quadro à parede é de 1 cm (parece pendurado encostado).
+
+Limitação honesta: a dificuldade de achar parede à noite / em parede lisa
+é física do ARCore (precisa de contraste visual). O código suaviza o
+resultado, mas não cria pontos de tracking onde não há. Filmar com boa
+luz e ter algum detalhe na parede (quadro, móvel) continua ajudando.
+
 ## Ajuste de tracking (se necessário)
 
 - `VERTICAL_DOT_MIN` (0.82): se recusar paredes válidas, baixe p/ ~0.70.

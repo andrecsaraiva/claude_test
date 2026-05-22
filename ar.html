@@ -193,7 +193,7 @@ const SIZES = [
 let currentSizeIndex = 2;   // default = button 3
 
 // ---- Tracking ----
-const WALL_OFFSET = 0.012;  // distance (m) the poster sits off the wall (anti z-fighting)
+const WALL_OFFSET = 0.010;  // distance (m) the poster sits off the wall — ~1cm, looks hung flush
 // How "vertical" a surface must be to count as a wall.
 // 1 = perfectly vertical. 0.82 ~= tolerates up to ~35deg of tilt.
 const VERTICAL_DOT_MIN = 0.82;
@@ -268,6 +268,23 @@ let toastTimer = null;
 // pose (position+rotation) where the poster is fixed on the wall,
 // kept SEPARATE from scale so resizing keeps the same center point.
 let placedPose = new THREE.Matrix4();
+
+// tracking smoothing state (constants live near the render loop):
+// the ARCore hit-test flickers on plain/dim walls — drops to 0 hits for
+// a few frames then recovers. We hold the last good wall pose briefly and
+// lerp toward new ones so the reticle glides instead of blinking.
+let lastWallPose = null;        // THREE.Matrix4 of the last good wall pose
+let lastWallTime = -1e9;        // timestamp of the last good wall hit
+
+// ---- WebXR anchors ----
+// When the poster is placed we create an XRAnchor. ARCore then keeps that
+// anchor correct as it refines its map — the poster stays glued to the
+// wall instead of drifting. createAnchor needs an XRFrame, which the
+// 'select' event doesn't carry, so onSelect just sets pendingPlacement
+// and the anchor is actually created inside onXRFrame.
+let posterAnchor = null;        // the active XRAnchor (null until placed)
+let pendingPlacement = null;    // { pose: XRRigidTransform } awaiting anchor
+let anchorSupported = false;    // set true once we confirm the API exists
 
 function setStatus(t){ statusEl.textContent = t; }
 function toast(t){
@@ -446,11 +463,29 @@ async function startAR(){
   DBG.push('reference spaces local + viewer OK', 'ok');
 
   try {
-    hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
-    DBG.push('hitTestSource created (space=viewer)', 'ok');
+    // Prefer plane hits over raw feature points: planes are far steadier
+    // on plain/dim walls. entityTypes is optional in the spec, so we try
+    // it first and fall back to a plain request if the browser rejects it.
+    try {
+      hitTestSource = await xrSession.requestHitTestSource({
+        space: viewerSpace,
+        entityTypes: ['plane']
+      });
+      DBG.push('hitTestSource created (space=viewer, entityTypes=plane)', 'ok');
+    } catch(inner){
+      hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
+      DBG.push('hitTestSource created (space=viewer, no entityTypes)', 'ok');
+    }
   } catch(e){
     DBG.push('ERROR creating hitTestSource: ' + e.message, 'err');
   }
+
+  // check whether this session granted the anchors feature
+  anchorSupported = (xrSession.enabledFeatures
+    ? xrSession.enabledFeatures.includes('anchors')
+    : true);  // some browsers don't expose enabledFeatures; assume yes
+  DBG.push('anchors feature: ' + (anchorSupported ? 'available' : 'NOT available'),
+    anchorSupported ? 'ok' : 'warn');
 
   xrSession.addEventListener('end', onSessionEnd);
   xrSession.addEventListener('select', onSelect);
@@ -466,6 +501,8 @@ async function startAR(){
 function onSessionEnd(){
   renderer.setAnimationLoop(null);
   if (hitTestSource){ hitTestSource.cancel?.(); hitTestSource = null; }
+  if (posterAnchor){ posterAnchor.delete?.(); posterAnchor = null; }
+  pendingPlacement = null;
   xrSession = null;
   hudEl.style.display = 'none';
   introEl.style.display = 'flex';
@@ -478,8 +515,15 @@ exitBtn.addEventListener('click', ()=> xrSession && xrSession.end());
 
 resetBtn.addEventListener('click', ()=>{
   if (posterModel){ scene.remove(posterModel); posterModel = null; }
+  if (posterAnchor){
+    posterAnchor.delete?.();          // release the ARCore anchor
+    posterAnchor = null;
+  }
+  pendingPlacement = null;
   posterPlaced = false;
   reticle.visible = false;
+  lastWallPose = null;          // clear smoothing so the next lock snaps clean
+  lastWallTime = -1e9;
   resetBtn.classList.add('hidden');
   setStatus('Looking for a wall… move the phone slowly');
   DBG.push('poster removed — tap the wall again to place it');
@@ -579,16 +623,17 @@ function isWall(normal){
   return Math.abs(normal.y) < (1 - VERTICAL_DOT_MIN);
 }
 
-// pose matrix for the poster: hit point pushed WALL_OFFSET off the wall,
-// rotated so the poster's front (+Z) faces away from the wall.
+// Flush pose ON the wall surface: position = hit point (NO offset here),
+// rotation so local +Z faces away from the wall.
+// The wall offset is applied exactly once, later, in updatePosterMatrix.
+// The reticle uses this flush pose directly (a target marker sits on the
+// surface); the poster gets pushed out by WALL_OFFSET.
 function poseOnWall(hitMatrix){
   const p = new THREE.Vector3();
   const q = new THREE.Quaternion();
   const s = new THREE.Vector3();
   hitMatrix.decompose(p, q, s);
   const n = new THREE.Vector3(0,1,0).applyQuaternion(q).normalize();
-
-  const pos = p.clone().addScaledVector(n, WALL_OFFSET);
 
   let up = UP.clone();
   if (Math.abs(n.dot(up)) > 0.95) up = new THREE.Vector3(0,0,1);
@@ -599,25 +644,44 @@ function poseOnWall(hitMatrix){
   const quat = new THREE.Quaternion().setFromRotationMatrix(rot);
 
   const out = new THREE.Matrix4();
-  out.compose(pos, quat, new THREE.Vector3(1,1,1));
+  out.compose(p, quat, new THREE.Vector3(1,1,1));
   return out;
 }
 
-// Rebuild posterModel.matrix from: placedPose (wall pose) + current size
-// scale + a depth push so the BACK face touches the wall.
-// Because the model origin is centered, scaling keeps the center fixed.
-function updatePosterMatrix(){
+// Apply pose + size to the poster.
+// CRITICAL: scale is applied via posterModel.scale (a THREE property),
+// NOT by multiplying scaleM into the pose matrix. Multiplying scale into
+// a matrix that wraps a group with internal offsets (from auto-center)
+// amplifies those offsets and throws the poster off the wall.
+// poseMatrix defaults to placedPose, but once an anchor is live the
+// render loop passes the anchor-corrected pose so the poster follows
+// ARCore's map refinements and stays glued to the wall.
+function updatePosterMatrix(poseMatrix){
   if (!posterModel) return;
+  const src = poseMatrix || placedPose;
   const f = scaleForSize(currentSizeIndex);
-  const depthPush = new THREE.Matrix4().makeTranslation(
-    0, 0, (nativeSize.depth * f.z) / 2);
-  const scaleM = new THREE.Matrix4().makeScale(f.x, f.y, f.z);
-  // order: wall pose -> push out by half depth -> scale around center
-  const m = placedPose.clone().multiply(depthPush).multiply(scaleM);
-  posterModel.matrix.copy(m);
+
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const scl = new THREE.Vector3();
+  src.decompose(pos, quat, scl);
+
+  // wall normal = local +Z of the pose, rotated to world space
+  const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(quat).normalize();
+
+  // push the poster off the wall by a FIXED distance (does not scale)
+  const finalPos = pos.clone().addScaledVector(normal, WALL_OFFSET);
+
+  posterModel.matrixAutoUpdate = true;
+  posterModel.position.copy(finalPos);
+  posterModel.quaternion.copy(quat);
+  posterModel.scale.set(f.x, f.y, f.z);
+  posterModel.updateMatrix();
 }
 
 // ---- tap to place / move the poster ----
+// We don't place directly here: createAnchor needs an XRFrame. We capture
+// the wall pose now and let onXRFrame create the anchor next frame.
 function onSelect(){
   DBG.push('TAP on screen. reticle.visible=' + reticle.visible);
   if (!reticle.visible) {
@@ -626,17 +690,29 @@ function onSelect(){
   }
   if (!posterModel){
     posterModel = modelTemplate.clone(true);
-    posterModel.matrixAutoUpdate = false;
     scene.add(posterModel);
   }
   // reticle.matrix is the flush wall pose -> store it as the placed pose
   placedPose.copy(reticle.matrix);
+
+  // capture the pose as an XRRigidTransform for anchor creation
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  placedPose.decompose(pos, quat, new THREE.Vector3());
+  pendingPlacement = {
+    position: { x: pos.x, y: pos.y, z: pos.z },
+    orientation: { x: quat.x, y: quat.y, z: quat.z, w: quat.w }
+  };
+
+  // show the poster immediately at the placed pose (anchor will take over)
   updatePosterMatrix();
   posterPlaced = true;
   resetBtn.classList.remove('hidden');
   setStatus('Poster placed — tap elsewhere to move it');
   toast('Poster placed at real size');
-  DBG.push('poster PLACED on wall (' + SIZES[currentSizeIndex].label + ')', 'ok');
+  DBG.push('poster PLACED (' + SIZES[currentSizeIndex].label
+    + ') offset=' + (WALL_OFFSET*100).toFixed(1) + 'cm'
+    + (anchorSupported ? ' — anchoring…' : ' — no anchor API'), 'ok');
 }
 
 // ---- render loop ----
@@ -647,9 +723,46 @@ let _dbgLastWallState = null;
 let _dbgFirstHitLogged = false;
 let _dbgFirstWallLogged = false;
 
+// smoothing constants (state vars declared near the top)
+const HOLD_MS = 600;            // keep last wall pose this long after a drop
+const SMOOTH = 0.35;            // 0..1 — higher = snappier, lower = smoother
+const _smPos = new THREE.Vector3();
+const _smQuat = new THREE.Quaternion();
+const _smScl = new THREE.Vector3();
+const _tgPos = new THREE.Vector3();
+const _tgQuat = new THREE.Quaternion();
+
 function onXRFrame(timestamp, frame){
   if (!frame) return;
   if (!hitTestSource){ renderer.render(scene, camera); return; }
+
+  // ---- anchor: create one if a placement is pending ----
+  if (pendingPlacement && anchorSupported && frame.createAnchor){
+    const xform = new XRRigidTransform(
+      pendingPlacement.position, pendingPlacement.orientation);
+    const pend = pendingPlacement;
+    pendingPlacement = null;            // consume it (avoid double-create)
+    frame.createAnchor(xform, xrRefSpace).then(anchor => {
+      posterAnchor = anchor;
+      DBG.push('anchor created — poster locked to ARCore map', 'ok');
+    }).catch(err => {
+      DBG.push('anchor failed (' + (err && err.message || err)
+        + ') — using fixed pose', 'warn');
+    });
+  } else if (pendingPlacement && !anchorSupported){
+    pendingPlacement = null;            // no anchor API: keep the fixed pose
+  }
+
+  // ---- anchor: each frame, follow the ARCore-corrected pose ----
+  if (posterAnchor && posterModel){
+    const aPose = frame.getPose(posterAnchor.anchorSpace, xrRefSpace);
+    if (aPose){
+      const m = new THREE.Matrix4().fromArray(aPose.transform.matrix);
+      // keep placedPose in sync so size changes use the corrected pose too
+      placedPose.copy(m);
+      updatePosterMatrix(m);
+    }
+  }
 
   const results = frame.getHitTestResults(hitTestSource);
   _dbgFrameCount++;
@@ -707,13 +820,42 @@ function onXRFrame(timestamp, frame){
     _dbgFrameCount = 0;
   }
 
+  // ---- decide the reticle pose with smoothing + hold ----
+  let showReticle = false;
+  let activePose = null;
+
   if (wallHit){
+    // real wall this frame -> compute pose, remember it
     const wallPose = poseOnWall(wallHit);
+    lastWallTime = timestamp;
+    if (!lastWallPose){
+      lastWallPose = wallPose.clone();      // first lock: snap
+    } else {
+      // lerp the stored pose toward the new one (glide, no jump)
+      lastWallPose.decompose(_smPos, _smQuat, _smScl);
+      wallPose.decompose(_tgPos, _tgQuat, new THREE.Vector3());
+      _smPos.lerp(_tgPos, SMOOTH);
+      _smQuat.slerp(_tgQuat, SMOOTH);
+      lastWallPose.compose(_smPos, _smQuat, new THREE.Vector3(1,1,1));
+    }
+    showReticle = true;
+    activePose = lastWallPose;
+  } else if (lastWallPose && (timestamp - lastWallTime) < HOLD_MS){
+    // no wall this frame, but we had one very recently -> hold it
+    showReticle = true;
+    activePose = lastWallPose;
+  } else {
+    // genuinely lost -> drop the reticle and forget the stale pose
+    showReticle = false;
+    if (timestamp - lastWallTime >= HOLD_MS) lastWallPose = null;
+  }
+
+  if (showReticle && activePose){
     reticle.visible = true;
-    reticle.matrix.copy(wallPose);
+    reticle.matrix.copy(activePose);
     if (!posterPlaced){
       sizePreview.visible = true;
-      sizePreview.matrix.copy(wallPose);
+      sizePreview.matrix.copy(activePose);
       setStatus('Wall found — tap to place the poster');
     } else {
       sizePreview.visible = false;
