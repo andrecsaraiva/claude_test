@@ -5,57 +5,89 @@ superfície vertical e escala real, via **WebXR**. Funciona em **Android + Chrom
 
 ## Estrutura dos arquivos
 
-Os 4 arquivos vão **todos juntos na raiz** do repositório, sem subpastas:
+Coloque os 4 arquivos **todos juntos na raiz** do repositório, sem subpastas:
 
     ar-tryon/
     ├── index.html      <- página com o QR code (gerador embutido, sem CDN)
     ├── ar.html         <- a experiência de AR (WebXR)
-    ├── poster.glb      <- modelo 3D do pôster
+    ├── poster.glb      <- seu modelo 3D (56 × 86 cm)
     └── vercel.json     <- faz o Vercel servir o .glb corretamente
 
-## Novidades desta versão
+O `ar.html` procura o modelo em `./poster.glb` (mesma pasta). Se mover o
+GLB para uma subpasta, atualize `MODEL_URL` no topo do `ar.html`.
 
-- **Textos em inglês** em toda a interface.
-- **3 botões de tamanho** no estilo do site AllPosters, no canto inferior
-  da câmera (acima do botão de fechar, sem sobrepor):
-  - 13" × 19"  (≈ 33,0 × 48,3 cm)
-  - 15" × 22"  (≈ 38,1 × 55,9 cm)
-  - 22" × 34"  (≈ 55,9 × 86,4 cm) — padrão, igual ao GLB atual
-- O botão selecionado fica com fundo **azul** (o mesmo tom do print do site);
-  os demais ficam brancos.
-- Ao trocar de tamanho, o quadro **permanece no mesmo ponto da parede** e
-  escala a partir do centro (o ponto onde foi fixado não se move).
+## Correção: QR travado em "gerando QR…"
 
-## Como o redimensionamento funciona (sem precisar de 3 GLBs)
+A versão anterior do `index.html` carregava a biblioteca de QR de um CDN
+externo (jsdelivr). Quando esse CDN é bloqueado ou falha, o script nunca
+carrega e a página fica presa em "gerando QR…" sem erro visível.
 
-Os 3 tamanhos usam **o mesmo GLB**. O código mede o tamanho nativo do
-modelo e aplica um fator de escala para cada medida em polegadas. A pose
-na parede (posição + rotação) é guardada separada da escala, então mudar
-de tamanho só reescala o quadro — o centro fica cravado no lugar.
+Corrigido: o `index.html` agora tem um **gerador de QR embutido** no
+próprio arquivo (algoritmo de domínio público). Não depende de nenhum CDN
+para o QR — funciona mesmo offline. Se algo falhar, agora aparece uma
+mensagem de erro em vez de travar silenciosamente.
 
-Se algum dia quiser tamanhos com arte diferente por proporção, dá para
-trocar por GLBs separados, mas para os 3 tamanhos atuais não é necessário.
-
-Para editar os tamanhos, veja a tabela `SIZES` no topo do `ar.html`.
+O QR gerado foi testado e decodifica corretamente para a URL do `ar.html`.
 
 ## Deploy com GitHub Desktop + Vercel
 
-1. GitHub Desktop: **New Repository**, escolha uma pasta.
-2. Copie os 4 arquivos para a raiz dessa pasta.
+1. No GitHub Desktop: **File > New Repository**, escolha uma pasta.
+2. Copie os 4 arquivos para dentro dessa pasta (na raiz).
 3. **Commit** e **Publish repository**.
-4. vercel.com: **Add New > Project**, importe o repositório.
-5. Framework Preset: **Other**. Sem build. **Deploy**.
-6. URL `https://...vercel.app` — já é HTTPS.
+4. Em vercel.com: **Add New > Project**, importe o repositório.
+5. Framework Preset: **Other**. Sem build. Clique **Deploy**.
+6. O Vercel dá uma URL `https://...vercel.app` — já é HTTPS.
 
-Ao trocar arquivos: novo **commit** no GitHub Desktop, o Vercel redeploya.
-No celular, use recarregar forçado ou aba anônima para evitar cache.
+Importante: depois de substituir os arquivos, faça um novo **commit** no
+GitHub Desktop e o Vercel redeploy automático. Ao abrir a URL no celular,
+use **recarregar forçado** ou aba anônima para não pegar o index.html
+antigo do cache.
+
+## Como testar
+
+1. No Android, abra a câmera e aponte para o QR (ou abra a URL no Chrome).
+2. Toque para abrir no **Google Chrome** (não funciona em outro navegador).
+3. Toque em "Iniciar câmera" e permita o acesso à câmera.
+4. Aponte para a **parede** e mova o celular devagar.
+5. Um contorno verde do tamanho real (56 × 86 cm) gruda na parede.
+6. Toque na tela para fixar. Toque de novo em outro ponto para reposicionar.
+
+## Configuração do modelo (já ajustada)
+
+No topo do `ar.html`, o bloco CONFIG já está certo para o seu GLB:
+
+    MODEL_URL       = './poster.glb'
+    MODEL_SCALE     = 1.0      // GLB já veio em metros (Blender exporta em m)
+    MODEL_REAL_SIZE = null     // usa o tamanho nativo: 0.56 × 0.86 m
+    MODEL_AUTOCENTER = true
+
+O Blender exporta glTF sempre em metros, mesmo com a Unit da cena em cm.
+O bbox medido do seu GLB é 0.56 × 0.86 m — por isso `MODEL_SCALE = 1.0`,
+e NÃO 0.01.
+
+## Dependência de CDN restante (three.js)
+
+O `ar.html` ainda carrega o **three.js** do CDN `unpkg.com`. Isso é
+intencional: three.js é grande demais para embutir, e o unpkg é mais
+estável que o CDN de QR. Se o unpkg também falhar no seu ambiente,
+baixe os arquivos do three.js e sirva-os localmente — me avise que eu
+ajusto o `ar.html` para apontar para cópias locais.
 
 ## Painel de debug (LOG)
 
-Botão **LOG** no canto superior esquerdo dentro do AR. Mostra em tempo
-real: inicialização do WebXR/hit-test, superfícies detectadas por frame,
-a normal de cada uma e se passou no filtro de parede, e cada transição
-de estado. Toque em **Copy log** para copiar e colar no chat.
+Dentro do AR há um botão **LOG** no canto superior esquerdo. Toque nele
+para abrir o painel de diagnóstico. Ele mostra em tempo real:
+
+- Se o WebXR e o hit-test inicializaram
+- Quantas superfícies o ARCore detecta por frame
+- A normal de cada superfície e se passou no filtro de parede
+- Cada transição de estado (achou parede / perdeu / não-parede)
+
+Para reportar um problema de tracking: abra o AR, aponte para a parede e
+mexa o celular por uns 15-20 segundos, depois toque em **Copiar log** e
+cole o conteúdo no chat. Com esse log dá para ver exatamente se o ARCore
+não está detectando nada, ou se está detectando mas o filtro de parede
+está rejeitando.
 
 ## Ajuste de tracking (se necessário)
 
@@ -63,14 +95,13 @@ de estado. Toque em **Copy log** para copiar e colar no chat.
   Se aceitar o chão, suba p/ ~0.90.
 - `WALL_OFFSET` (0.012 m): distância do quadro para fora da parede.
 
-A detecção ocasionalmente falha em paredes muito lisas/uniformes — é
-limitação do ARCore (poucos pontos de textura). Mover o celular devagar
-e ter algum detalhe na parede ajuda.
+Para depurar no Android: cabo USB + `chrome://inspect` no PC mostra o
+console do `ar.html`.
 
 ## Limitações conhecidas
 
 - **iPhone não funciona**: Safari não suporta WebXR AR.
-- O `ar.html` carrega o three.js do CDN unpkg.com. Se falhar, é possível
-  servir uma cópia local — peça o ajuste.
-- A textura do GLB é um pôster licenciado (Star Wars). Ok para teste e
-  pitch interno; troque por arte licenciada ao cliente antes de uso público.
+- Paredes lisas e sem textura dão menos pontos ao ARCore — por isso o
+  fluxo é "mira + toque".
+- A textura do GLB é um pôster licenciado (Star Wars). Ok para teste
+  interno; troque por arte licenciada ao cliente antes de uso público.
