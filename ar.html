@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>AR Try-On — Wall</title>
+<title>AR Try-On — Parede</title>
 <style>
-  :root { color-scheme: dark; --ap-blue: #29c5e8; }
+  :root { color-scheme: dark; }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; background: #0d0d0f; font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color: #fff; overflow: hidden; }
 
-  /* ---- Intro / status ---- */
+  /* ---- Tela inicial / status ---- */
   #intro {
     position: fixed; inset: 0; z-index: 30;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -26,7 +26,7 @@
   #startBtn:active { transform: scale(0.97); }
   #unsupported { display: none; color: #ff8a80; font-size: 13px; max-width: 320px; }
 
-  /* ---- HUD during AR (dom-overlay) ---- */
+  /* ---- HUD durante o AR (dom-overlay) ---- */
   #hud { position: fixed; inset: 0; z-index: 20; display: none; pointer-events: none; }
   #status {
     position: absolute; top: env(safe-area-inset-top, 14px); left: 50%;
@@ -34,45 +34,9 @@
     background: rgba(0,0,0,0.62); backdrop-filter: blur(8px);
     padding: 9px 18px; border-radius: 100px; font-size: 13px; white-space: nowrap;
   }
-  #exitBtn {
-    position: absolute; top: env(safe-area-inset-top, 14px); right: 14px; margin-top: 14px;
-    width: 38px; height: 38px; border-radius: 50%; pointer-events: auto;
-    background: rgba(0,0,0,0.62); border: none; color: #fff; font-size: 18px; cursor: pointer;
-  }
-  #toast {
-    position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%);
-    background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 100px;
-    font-size: 12px; opacity: 0; transition: opacity .25s; white-space: nowrap;
-  }
-
-  /* ---- size picker (AllPosters style) ---- */
-  #sizeBar {
-    position: absolute; left: 0; right: 0;
-    bottom: calc(env(safe-area-inset-bottom, 16px) + 70px);
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    pointer-events: none;
-  }
-  #sizeLabel {
-    font-size: 12px; font-weight: 600; color: #fff;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.9); letter-spacing: 0.3px;
-  }
-  #sizeBtns { display: flex; gap: 8px; pointer-events: auto; }
-  .size-btn {
-    min-width: 78px; padding: 11px 10px;
-    font-size: 13px; font-weight: 600; text-align: center;
-    background: #ffffff; color: #1a1a1a;
-    border: 1px solid #cfcfcf; border-radius: 4px;
-    cursor: pointer; transition: background .12s, color .12s, border-color .12s;
-  }
-  .size-btn:active { transform: scale(0.97); }
-  .size-btn.active {
-    background: var(--ap-blue); color: #ffffff; border-color: var(--ap-blue);
-  }
-
-  /* ---- bottom bar (reset) ---- */
   #bottomBar {
     position: absolute; left: 0; right: 0; bottom: 0;
-    padding: 14px 16px calc(env(safe-area-inset-bottom, 16px) + 14px);
+    padding: 16px 16px calc(env(safe-area-inset-bottom, 16px) + 16px);
     display: flex; gap: 10px; justify-content: center; pointer-events: auto;
   }
   .pill {
@@ -82,12 +46,22 @@
   }
   .pill:active { transform: scale(0.96); }
   .pill.hidden { display: none; }
+  #exitBtn {
+    position: absolute; top: env(safe-area-inset-top, 14px); right: 14px; margin-top: 14px;
+    width: 38px; height: 38px; border-radius: 50%; pointer-events: auto;
+    background: rgba(0,0,0,0.62); border: none; color: #fff; font-size: 18px; cursor: pointer;
+  }
+  #toast {
+    position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 100px;
+    font-size: 12px; opacity: 0; transition: opacity .25s; white-space: nowrap;
+  }
 
-  /* ===== debug panel ===== */
+  /* ===== painel de debug ===== */
   #debugPanel {
     position: absolute; left: 8px; right: 8px;
     top: calc(env(safe-area-inset-top, 14px) + 60px);
-    height: 38vh; display: flex; flex-direction: column;
+    height: 40vh; display: flex; flex-direction: column;
     background: rgba(0,0,0,0.82); border: 1px solid rgba(124,255,178,0.4);
     border-radius: 10px; pointer-events: auto; overflow: hidden;
   }
@@ -121,44 +95,34 @@
 <body>
 
 <div id="intro">
-  <h1>Wall Try-On</h1>
-  <p>Point the camera at the <b>wall</b> where you want to see the poster. Move the phone slowly so AR can recognize the surface, then tap to place it.</p>
-  <button id="startBtn">Start camera</button>
-  <p id="unsupported">⚠️ This device/browser does not support WebXR AR.<br>Use <b>Google Chrome</b> on an Android device with ARCore.</p>
+  <h1>Try-On de Parede</h1>
+  <p>Aponte a câmera para a <b>parede</b> onde quer ver o quadro. Mova o celular devagar para o AR reconhecer a superfície, depois toque para fixar.</p>
+  <button id="startBtn">Iniciar câmera</button>
+  <p id="unsupported">⚠️ Este aparelho/navegador não suporta WebXR AR.<br>Use o <b>Google Chrome</b> num Android com ARCore.</p>
 </div>
 
 <div id="hud">
-  <div id="status">Starting…</div>
+  <div id="status">Iniciando…</div>
   <button id="exitBtn">✕</button>
   <div id="toast"></div>
 
-  <!-- ===== debug panel ===== -->
+  <!-- ===== painel de DEBUG ===== -->
   <div id="debugPanel">
     <div id="debugLog"></div>
     <div id="debugBtns">
-      <button class="dbg" id="copyLogBtn">Copy log</button>
-      <button class="dbg" id="clearLogBtn">Clear</button>
-      <button class="dbg" id="hideLogBtn">Hide</button>
+      <button class="dbg" id="copyLogBtn">Copiar log</button>
+      <button class="dbg" id="clearLogBtn">Limpar</button>
+      <button class="dbg" id="hideLogBtn">Ocultar</button>
     </div>
   </div>
   <button id="showLogBtn">LOG</button>
 
-  <!-- ===== size picker ===== -->
-  <div id="sizeBar">
-    <div id="sizeLabel">Choose size</div>
-    <div id="sizeBtns">
-      <button class="size-btn" data-size="0">13" × 19"</button>
-      <button class="size-btn" data-size="1">15" × 22"</button>
-      <button class="size-btn active" data-size="2">22" × 34"</button>
-    </div>
-  </div>
-
   <div id="bottomBar">
-    <button class="pill hidden" id="resetBtn">Reposition</button>
+    <button class="pill hidden" id="resetBtn">Reposicionar</button>
   </div>
 </div>
 
-<!-- three.js + loaders via CDN (ES modules) -->
+<!-- three.js + loaders via CDN (modulos ES) -->
 <script type="importmap">
 {
   "imports": {
@@ -173,29 +137,34 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // ===================== CONFIG =====================
-// GLB URL. Any GLB works: the code measures and adapts orientation/origin.
+// URL do GLB do quadro. Pode ser qualquer GLB: o codigo mede e adapta
+// orientacao/origem automaticamente. Veja MODEL_* abaixo p/ ajustes.
 const MODEL_URL  = './poster.glb';
 
-// Scale multiplier. Blender's glTF exporter always writes meters, even if
-// the scene Unit is cm. This GLB came in meters, so MODEL_SCALE = 1.0.
+// --- Escala ---
+// Multiplicador aplicado ao GLB.
+// IMPORTANTE: o exportador glTF do Blender SEMPRE grava em metros, mesmo
+// que a Unit da cena esteja em cm. Este GLB ja veio em metros
+// (bbox medido = 0.56 x 0.86 m), portanto a escala correta e 1.0.
+// Use 0.01 apenas se algum dia um GLB vier realmente em centimetros.
 const MODEL_SCALE = 1.0;
 
-// Auto-recenter the model origin at the bounding-box center. Keep true.
+// --- Tamanho real forcado (opcional) ---
+// Se quiser que o quadro tenha um tamanho fisico exato independente do GLB,
+// preencha em METROS. Deixe null para usar o tamanho nativo do modelo.
+// O GLB enviado ja mede 0.56 x 0.86 m, entao null = tamanho correto.
+//   ex.: { width: 0.56, height: 0.86 }
+const MODEL_REAL_SIZE = null;
+
+// Auto-recentrar a origem do modelo no centro do bounding box.
+// Resolve GLBs exportados com a origem num canto. Quase sempre true.
+// (Neste GLB a origem ja esta no centro, mas manter true nao atrapalha.)
 const MODEL_AUTOCENTER = true;
 
-// ---- Available poster sizes (inches -> meters) ----
-// 1 inch = 0.0254 m. Button 3 (22x34) is the current/default poster.
-const SIZES = [
-  { label: '13" x 19"', w: 13 * 0.0254, h: 19 * 0.0254 },  // ~0.330 x 0.483 m
-  { label: '15" x 22"', w: 15 * 0.0254, h: 22 * 0.0254 },  // ~0.381 x 0.559 m
-  { label: '22" x 34"', w: 22 * 0.0254, h: 34 * 0.0254 }   // ~0.559 x 0.864 m
-];
-let currentSizeIndex = 2;   // default = button 3
-
-// ---- Tracking ----
-const WALL_OFFSET = 0.012;  // distance (m) the poster sits off the wall (anti z-fighting)
-// How "vertical" a surface must be to count as a wall.
-// 1 = perfectly vertical. 0.82 ~= tolerates up to ~35deg of tilt.
+// --- Tracking ---
+const WALL_OFFSET = 0.012;   // distancia (m) do quadro p/ fora da parede (evita z-fighting)
+// Quao "vertical" um plano precisa ser p/ contar como parede.
+// 1 = perfeitamente vertical. 0.82 ~= ate ~35 graus de inclinacao tolerada.
 const VERTICAL_DOT_MIN = 0.82;
 // ==================================================
 
@@ -206,16 +175,18 @@ const toastEl  = document.getElementById('toast');
 const startBtn = document.getElementById('startBtn');
 const exitBtn  = document.getElementById('exitBtn');
 const resetBtn = document.getElementById('resetBtn');
-const sizeBtns = Array.from(document.querySelectorAll('.size-btn'));
 
-// ===== debug engine =====
+// ===== motor de DEBUG =====
 const debugPanel = document.getElementById('debugPanel');
 const debugLogEl = document.getElementById('debugLog');
 const DBG = {
-  lines: [], max: 400, t0: performance.now(),
+  lines: [],
+  max: 400,
+  t0: performance.now(),
   push(msg, cls){
     const t = ((performance.now() - this.t0) / 1000).toFixed(2);
-    this.lines.push({ text: '[' + t + 's] ' + msg, cls: cls || '' });
+    const entry = '[' + t + 's] ' + msg;
+    this.lines.push({ text: entry, cls: cls || '' });
     if (this.lines.length > this.max) this.lines.shift();
     this.render();
   },
@@ -232,6 +203,7 @@ function esc(s){
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// botoes do painel
 document.getElementById('showLogBtn').addEventListener('click', ()=>{
   debugPanel.classList.remove('hidden');
   document.getElementById('showLogBtn').classList.add('hidden');
@@ -247,13 +219,14 @@ document.getElementById('copyLogBtn').addEventListener('click', async ()=>{
   const txt = DBG.text();
   try {
     await navigator.clipboard.writeText(txt);
-    toast('Log copied — paste it in chat');
+    toast('Log copiado — cole no chat');
   } catch(e){
+    // fallback: seleciona o texto p/ copia manual
     const ta = document.createElement('textarea');
     ta.value = txt; ta.style.position='fixed'; ta.style.opacity='0';
     document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); toast('Log copied'); }
-    catch(e2){ toast('Copy it manually from the panel'); }
+    try { document.execCommand('copy'); toast('Log copiado'); }
+    catch(e2){ toast('Copie manualmente do painel'); }
     document.body.removeChild(ta);
   }
 });
@@ -262,12 +235,8 @@ let renderer, scene, camera;
 let reticle, sizePreview, posterModel, posterPlaced = false;
 let xrSession = null, xrRefSpace = null, viewerSpace = null;
 let hitTestSource = null;
-let modelTemplate = null;     // loaded GLB, cloned on placement
+let modelTemplate = null;     // GLB carregado, clonado ao fixar
 let toastTimer = null;
-
-// pose (position+rotation) where the poster is fixed on the wall,
-// kept SEPARATE from scale so resizing keeps the same center point.
-let placedPose = new THREE.Matrix4();
 
 function setStatus(t){ statusEl.textContent = t; }
 function toast(t){
@@ -276,7 +245,7 @@ function toast(t){
   toastTimer = setTimeout(()=>{ toastEl.style.opacity = 0; }, 2200);
 }
 
-// ---- support check ----
+// ---- checagem de suporte ----
 async function checkSupport(){
   if (!('xr' in navigator)) return false;
   try { return await navigator.xr.isSessionSupported('immersive-ar'); }
@@ -286,136 +255,103 @@ async function checkSupport(){
 checkSupport().then(ok => {
   DBG.push('=== AR Try-On debug ===');
   DBG.push('UA: ' + navigator.userAgent);
-  DBG.push('WebXR immersive-ar supported: ' + ok, ok ? 'ok' : 'err');
-  DBG.push('screen: ' + innerWidth + 'x' + innerHeight + ' dpr=' + devicePixelRatio);
+  DBG.push('WebXR immersive-ar suportado: ' + ok, ok ? 'ok' : 'err');
+  DBG.push('tela: ' + innerWidth + 'x' + innerHeight + ' dpr=' + devicePixelRatio);
   if (!ok){
     startBtn.style.display = 'none';
     document.getElementById('unsupported').style.display = 'block';
   }
 });
 
-// nativeSize = the GLB's own measured size (m). The poster is then
-// rescaled per the SIZES table. depth scales with the average factor.
-let nativeSize = { width: 0.6, height: 0.9, depth: 0.02 };
-// posterSize = the currently selected real-world size (m).
+// dimensoes finais do quadro (m), preenchidas apos normalizar o GLB
 let posterSize = { width: 0.6, height: 0.9, depth: 0.02 };
 
-// ---- load + normalize the GLB ----
+// ---- carrega o GLB e o NORMALIZA para a convencao da parede ----
+// Convencao alvo: quadro no plano XY, face frontal apontando para +Z,
+// origem no centro, escala em metros.
+// O codigo detecta sozinho o eixo "fino" (profundidade) do quadro e o
+// rotaciona para +Z, recentra a origem e aplica escala. Funciona com
+// GLBs exportados em qualquer orientacao (Blender, etc.).
 function preloadModel(){
-  DBG.push('loading GLB: ' + MODEL_URL);
+  DBG.push('carregando GLB: ' + MODEL_URL);
   return new Promise((resolve, reject)=>{
     new GLTFLoader().load(MODEL_URL,
       gltf => {
         try {
           modelTemplate = normalizeModel(gltf.scene);
-          DBG.push('GLB OK -> native size ' + nativeSize.width.toFixed(3) + ' x '
-            + nativeSize.height.toFixed(3) + ' x ' + nativeSize.depth.toFixed(4)
+          DBG.push('GLB OK -> quadro ' + posterSize.width.toFixed(3) + ' x '
+            + posterSize.height.toFixed(3) + ' x ' + posterSize.depth.toFixed(4)
             + ' m', 'ok');
           resolve();
         } catch(e){
-          DBG.push('ERROR normalizing GLB: ' + e.message, 'err');
+          DBG.push('ERRO ao normalizar GLB: ' + e.message, 'err');
           reject(e);
         }
       },
       undefined,
       err => {
-        DBG.push('ERROR loading GLB: ' + (err && err.message || err), 'err');
+        DBG.push('ERRO ao carregar GLB: ' + (err && err.message || err), 'err');
         reject(err);
       }
     );
   });
 }
 
-// Normalize: thin axis -> +Z, origin -> center, apply MODEL_SCALE.
-// Returns a group whose own scale is 1 (so we can scale it freely later).
 function normalizeModel(root){
+  // 1) mede o bounding box bruto do GLB
   let box = new THREE.Box3().setFromObject(root);
   let size = new THREE.Vector3(); box.getSize(size);
   let center = new THREE.Vector3(); box.getCenter(center);
 
+  // 2) detecta o eixo "fino" -> e a profundidade do quadro
   const dims = [size.x, size.y, size.z];
-  const thinAxis = dims.indexOf(Math.min(...dims)); // 0=x,1=y,2=z
+  const thinAxis = dims.indexOf(Math.min(...dims)); // 0=x, 1=y, 2=z
 
+  // 3) wrapper que recentra a origem no centro do bbox
   const centered = new THREE.Group();
   if (MODEL_AUTOCENTER) root.position.sub(center);
   centered.add(root);
 
-  if (thinAxis === 0)       centered.rotation.y =  Math.PI / 2;
-  else if (thinAxis === 1)  centered.rotation.x = -Math.PI / 2;
+  // 4) rotaciona para que o eixo fino vire +Z (profundidade -> frente)
+  if (thinAxis === 0)       centered.rotation.y =  Math.PI / 2;  // X fino -> Z
+  else if (thinAxis === 1)  centered.rotation.x = -Math.PI / 2;  // Y fino -> Z
+  // thinAxis === 2: ja esta com a profundidade em Z, nada a fazer
 
+  // 5) aplica escala (cm->m etc.) e mede de novo ja orientado
   const scaled = new THREE.Group();
   centered.scale.setScalar(MODEL_SCALE);
   scaled.add(centered);
 
   let box2 = new THREE.Box3().setFromObject(scaled);
   let size2 = new THREE.Vector3(); box2.getSize(size2);
+  // agora size2.x = largura, size2.y = altura, size2.z = profundidade
 
-  nativeSize = { width: size2.x, height: size2.y, depth: size2.z };
-  console.log('[AR] native poster size (m):', nativeSize,
-              ' thin axis:', ['X','Y','Z'][thinAxis]);
+  // 6) tamanho real forcado (opcional): reescala XY p/ medidas exatas
+  if (MODEL_REAL_SIZE && size2.x > 0 && size2.y > 0){
+    const fx = MODEL_REAL_SIZE.width  / size2.x;
+    const fy = MODEL_REAL_SIZE.height / size2.y;
+    // escala uniforme media p/ nao distorcer; XY dominam o resultado
+    centered.scale.multiplyScalar((fx + fy) / 2);
+    box2 = new THREE.Box3().setFromObject(scaled);
+    box2.getSize(size2);
+  }
+
+  posterSize = { width: size2.x, height: size2.y, depth: size2.z };
+  console.log('[AR] quadro normalizado (m):', posterSize,
+              ' eixo fino detectado:', ['X','Y','Z'][thinAxis]);
   return scaled;
 }
 
-// Build the THREE scale factors that turn the native GLB size into the
-// chosen real-world size. X and Y map to width/height; depth uses the
-// average so thickness stays sensible.
-function scaleForSize(idx){
-  const s = SIZES[idx];
-  const fx = s.w / nativeSize.width;
-  const fy = s.h / nativeSize.height;
-  const fz = (fx + fy) / 2;
-  return new THREE.Vector3(fx, fy, fz);
-}
-
-// Apply a size to the poster + preview, keeping the SAME wall pose
-// (center point stays fixed; it scales from the center).
-function applySize(idx, fromUser){
-  currentSizeIndex = idx;
-  const f = scaleForSize(idx);
-  posterSize = {
-    width: SIZES[idx].w,
-    height: SIZES[idx].h,
-    depth: nativeSize.depth * f.z
-  };
-
-  // update button states
-  sizeBtns.forEach(b => {
-    b.classList.toggle('active', Number(b.dataset.size) === idx);
-  });
-
-  // rebuild the size preview outline at the new dimensions
-  refreshSizePreview();
-
-  // if the poster is already on the wall, rescale it in place
-  if (posterPlaced && posterModel){
-    updatePosterMatrix();
-  }
-  if (fromUser){
-    DBG.push('size changed -> ' + SIZES[idx].label
-      + ' (' + (SIZES[idx].w*100).toFixed(1) + ' x '
-      + (SIZES[idx].h*100).toFixed(1) + ' cm)', 'ok');
-    toast(SIZES[idx].label.replace(/"/g,'in'));
-  }
-}
-
-// size button clicks
-sizeBtns.forEach(btn => {
-  btn.addEventListener('click', ()=> {
-    applySize(Number(btn.dataset.size), true);
-  });
-});
-
-// ---- start WebXR session ----
+// ---- inicia a sessao WebXR ----
 startBtn.addEventListener('click', async ()=>{
-  setStatus('Loading model…');
+  setStatus('Carregando modelo…');
   introEl.style.display = 'none';
   hudEl.style.display = 'block';
   try { await preloadModel(); }
   catch(e){
     introEl.style.display = 'flex'; hudEl.style.display = 'none';
     document.getElementById('unsupported').style.display = 'block';
-    document.getElementById('unsupported').textContent =
-      'Failed to load the 3D model (' + MODEL_URL + ').';
+    document.getElementById('unsupported').textContent = 'Falha ao carregar o modelo 3D (' + MODEL_URL + ').';
     return;
   }
   startAR();
@@ -423,17 +359,17 @@ startBtn.addEventListener('click', async ()=>{
 
 async function startAR(){
   initThree();
-  applySize(currentSizeIndex, false);  // builds preview at default size
+  refreshSizePreview();  // agora posterSize ja reflete o GLB carregado
   try {
     xrSession = await navigator.xr.requestSession('immersive-ar', {
       requiredFeatures: ['hit-test'],
       optionalFeatures: ['dom-overlay', 'anchors', 'light-estimation'],
       domOverlay: { root: hudEl }
     });
-    DBG.push('immersive-ar session created', 'ok');
+    DBG.push('sessao immersive-ar criada', 'ok');
   } catch(e){
-    DBG.push('ERROR creating AR session: ' + e.message, 'err');
-    setStatus('Could not open the AR camera.');
+    DBG.push('ERRO ao criar sessao AR: ' + e.message, 'err');
+    setStatus('Não foi possível abrir a câmera AR.');
     introEl.style.display = 'flex'; hudEl.style.display = 'none';
     return;
   }
@@ -445,21 +381,23 @@ async function startAR(){
   viewerSpace = await xrSession.requestReferenceSpace('viewer');
   DBG.push('reference spaces local + viewer OK', 'ok');
 
+  // hit-test a partir do "viewer" = centro da tela. Pegamos resultados
+  // ao vivo a cada frame e filtramos os que apontam para parede.
   try {
     hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
-    DBG.push('hitTestSource created (space=viewer)', 'ok');
+    DBG.push('hitTestSource criado (espaco=viewer)', 'ok');
   } catch(e){
-    DBG.push('ERROR creating hitTestSource: ' + e.message, 'err');
+    DBG.push('ERRO ao criar hitTestSource: ' + e.message, 'err');
   }
 
   xrSession.addEventListener('end', onSessionEnd);
-  xrSession.addEventListener('select', onSelect);
+  xrSession.addEventListener('select', onSelect);   // toque na tela
 
   DBG.push('VERTICAL_DOT_MIN=' + VERTICAL_DOT_MIN
-    + '  (|normal.y| must be < ' + (1 - VERTICAL_DOT_MIN).toFixed(2)
-    + ' to count as a wall)');
-  DBG.push('loop started — point at the wall and move slowly');
-  setStatus('Looking for a wall… move the phone slowly');
+    + '  (|normal.y| precisa ser < ' + (1 - VERTICAL_DOT_MIN).toFixed(2)
+    + ' p/ contar como parede)');
+  DBG.push('loop iniciado — aponte p/ a parede e mova devagar');
+  setStatus('Procurando parede… mova o celular devagar');
   renderer.setAnimationLoop(onXRFrame);
 }
 
@@ -471,7 +409,7 @@ function onSessionEnd(){
   introEl.style.display = 'flex';
   posterPlaced = false;
   resetBtn.classList.add('hidden');
-  DBG.push('AR session ended — the log above can still be copied');
+  DBG.push('sessao AR encerrada — o log acima pode ser copiado');
 }
 
 exitBtn.addEventListener('click', ()=> xrSession && xrSession.end());
@@ -481,8 +419,7 @@ resetBtn.addEventListener('click', ()=>{
   posterPlaced = false;
   reticle.visible = false;
   resetBtn.classList.add('hidden');
-  setStatus('Looking for a wall… move the phone slowly');
-  DBG.push('poster removed — tap the wall again to place it');
+  setStatus('Procurando parede… mova o celular devagar');
 });
 
 // ---- three.js setup ----
@@ -499,16 +436,19 @@ function initThree(){
   renderer.domElement.style.inset = '0';
   renderer.domElement.style.zIndex = '10';
 
+  // luz: ambiente + direcional. (light-estimation pode refinar depois.)
   scene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 1.6));
   const dir = new THREE.DirectionalLight(0xffffff, 0.7);
   dir.position.set(0.5, 1, 1);
   scene.add(dir);
 
+  // ---- reticle: mira que gruda na parede ----
   reticle = makeReticle();
   reticle.visible = false;
   reticle.matrixAutoUpdate = false;
   scene.add(reticle);
 
+  // contorno em tamanho real do quadro (preview na parede antes de fixar)
   sizePreview = makeSizePreview();
   sizePreview.visible = false;
   sizePreview.matrixAutoUpdate = false;
@@ -521,7 +461,7 @@ function initThree(){
   });
 }
 
-// reticle: ring + dot, lies flat on the wall plane
+// mira em anel + cruz, deitada no plano da parede
 function makeReticle(){
   const g = new THREE.Group();
   const ring = new THREE.Mesh(
@@ -537,7 +477,7 @@ function makeReticle(){
   return g;
 }
 
-// rectangular outline of the currently selected real size
+// contorno retangular do tamanho real do quadro (preview antes de fixar)
 function makeSizePreview(){
   const w = posterSize.width  / 2;
   const h = posterSize.height / 2;
@@ -547,26 +487,34 @@ function makeSizePreview(){
     new THREE.Vector3(-w,-h,0)
   ];
   const geo = new THREE.BufferGeometry().setFromPoints(pts);
-  return new THREE.Line(geo, new THREE.LineBasicMaterial({
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({
     color: 0x7CFFB2, transparent:true, opacity:0.9 }));
+  return line;
 }
 
+// recria o preview quando ja sabemos o tamanho real do GLB
 function refreshSizePreview(){
-  if (!sizePreview || !scene) return;
-  const wasVisible = sizePreview.visible;
-  const prevMatrix = sizePreview.matrix.clone();
+  if (!sizePreview) return;
   scene.remove(sizePreview);
   sizePreview = makeSizePreview();
+  sizePreview.visible = false;
   sizePreview.matrixAutoUpdate = false;
-  sizePreview.visible = wasVisible;
-  sizePreview.matrix.copy(prevMatrix);
   scene.add(sizePreview);
 }
 
-// ---- geometry helpers ----
+// ---- helpers de geometria ----
 const _m = new THREE.Matrix4();
+const _q = new THREE.Quaternion();
+const _p = new THREE.Vector3();
+const _s = new THREE.Vector3();
+const _normal = new THREE.Vector3();
 const UP = new THREE.Vector3(0,1,0);
 
+/**
+ * Dado o pose de um hit-test, extrai a normal da superficie.
+ * No WebXR a orientacao do hit-test result tem o +Y na normal do plano.
+ * Retorna a normal (vetor NOVO) em world-space.
+ */
 function surfaceNormalFromPose(matrix){
   const q = new THREE.Quaternion();
   const p = new THREE.Vector3();
@@ -575,23 +523,28 @@ function surfaceNormalFromPose(matrix){
   return new THREE.Vector3(0,1,0).applyQuaternion(q).normalize();
 }
 
+/** true se a superficie for aproximadamente vertical (parede). */
 function isWall(normal){
+  // parede => normal quase horizontal => componente Y pequeno
   return Math.abs(normal.y) < (1 - VERTICAL_DOT_MIN);
 }
 
-// pose matrix for the poster: hit point pushed WALL_OFFSET off the wall,
-// rotated so the poster's front (+Z) faces away from the wall.
+/**
+ * Constroi a matriz de pose do quadro: posicao no ponto do hit,
+ * empurrada WALL_OFFSET para fora da parede, e rotacionada para que
+ * a FRENTE do quadro (+Z local) aponte para fora da parede.
+ */
 function poseOnWall(hitMatrix){
-  const p = new THREE.Vector3();
-  const q = new THREE.Quaternion();
-  const s = new THREE.Vector3();
-  hitMatrix.decompose(p, q, s);
-  const n = new THREE.Vector3(0,1,0).applyQuaternion(q).normalize();
+  hitMatrix.decompose(_p, _q, _s);
+  const n = new THREE.Vector3(0,1,0).applyQuaternion(_q).normalize(); // normal da parede
 
-  const pos = p.clone().addScaledVector(n, WALL_OFFSET);
+  // posicao = ponto do hit + offset ao longo da normal
+  const pos = _p.clone().addScaledVector(n, WALL_OFFSET);
 
+  // queremos o +Z do quadro alinhado com a normal n.
+  // construimos uma base ortonormal: right, up, forward(=n)
   let up = UP.clone();
-  if (Math.abs(n.dot(up)) > 0.95) up = new THREE.Vector3(0,0,1);
+  if (Math.abs(n.dot(up)) > 0.95) up = new THREE.Vector3(0,0,1); // fallback
   const right = new THREE.Vector3().crossVectors(up, n).normalize();
   const realUp = new THREE.Vector3().crossVectors(n, right).normalize();
 
@@ -603,47 +556,40 @@ function poseOnWall(hitMatrix){
   return out;
 }
 
-// Rebuild posterModel.matrix from: placedPose (wall pose) + current size
-// scale + a depth push so the BACK face touches the wall.
-// Because the model origin is centered, scaling keeps the center fixed.
-function updatePosterMatrix(){
-  if (!posterModel) return;
-  const f = scaleForSize(currentSizeIndex);
-  const depthPush = new THREE.Matrix4().makeTranslation(
-    0, 0, (nativeSize.depth * f.z) / 2);
-  const scaleM = new THREE.Matrix4().makeScale(f.x, f.y, f.z);
-  // order: wall pose -> push out by half depth -> scale around center
-  const m = placedPose.clone().multiply(depthPush).multiply(scaleM);
-  posterModel.matrix.copy(m);
-}
-
-// ---- tap to place / move the poster ----
+// ---- toque para fixar / mover o quadro ----
+const _placeMat = new THREE.Matrix4();
+const _offMat = new THREE.Matrix4();
 function onSelect(){
-  DBG.push('TAP on screen. reticle.visible=' + reticle.visible);
+  DBG.push('TOQUE na tela. reticle.visible=' + reticle.visible);
   if (!reticle.visible) {
-    toast('Point at a wall first');
+    toast('Aponte para uma parede primeiro');
     return;
   }
   if (!posterModel){
     posterModel = modelTemplate.clone(true);
-    posterModel.matrixAutoUpdate = false;
     scene.add(posterModel);
   }
-  // reticle.matrix is the flush wall pose -> store it as the placed pose
-  placedPose.copy(reticle.matrix);
-  updatePosterMatrix();
+  posterModel.matrixAutoUpdate = false;
+  // reticle.matrix esta rente a parede. O quadro tem espessura, entao
+  // empurramos +Z local por (metade da profundidade) para que a face
+  // de TRAS encoste na parede em vez do centro do quadro.
+  _offMat.makeTranslation(0, 0, posterSize.depth / 2);
+  _placeMat.copy(reticle.matrix).multiply(_offMat);
+  posterModel.matrix.copy(_placeMat);
   posterPlaced = true;
   resetBtn.classList.remove('hidden');
-  setStatus('Poster placed — tap elsewhere to move it');
-  toast('Poster placed at real size');
-  DBG.push('poster PLACED on wall (' + SIZES[currentSizeIndex].label + ')', 'ok');
+  setStatus('Quadro fixado — toque em outro ponto para mover');
+  toast('Quadro posicionado em escala real');
+  DBG.push('quadro FIXADO na parede', 'ok');
 }
 
-// ---- render loop ----
+// ---- loop de render ----
+// estado p/ throttle e deteccao de transicao
 let _dbgLastSummary = 0;
 let _dbgFrameCount = 0;
 let _dbgMaxHits = 0;
-let _dbgLastWallState = null;
+let _dbgWallSeen = false;          // ja vimos parede nesta "fase"?
+let _dbgLastWallState = null;      // 'wall' | 'nonwall' | 'none'
 let _dbgFirstHitLogged = false;
 let _dbgFirstWallLogged = false;
 
@@ -655,11 +601,13 @@ function onXRFrame(timestamp, frame){
   _dbgFrameCount++;
   if (results.length > _dbgMaxHits) _dbgMaxHits = results.length;
 
+  // primeiro hit-test de toda a sessao
   if (!_dbgFirstHitLogged && results.length > 0){
     _dbgFirstHitLogged = true;
-    DBG.push('first hit-test received (' + results.length + ' result(s))', 'ok');
+    DBG.push('1o hit-test recebido (' + results.length + ' resultado(s))', 'ok');
   }
 
+  // examina os hits e separa parede de nao-parede; guarda as normais
   let wallHit = null;
   let normalsInfo = [];
   for (const r of results){
@@ -671,36 +619,39 @@ function onXRFrame(timestamp, frame){
     if (isWall(n) && !wallHit){ wallHit = _m.clone(); }
   }
 
+  // log imediato no 1o hit que e parede
   if (!_dbgFirstWallLogged && wallHit){
     _dbgFirstWallLogged = true;
-    DBG.push('first valid WALL detected', 'ok');
+    DBG.push('1a PAREDE valida detectada', 'ok');
   }
 
+  // deteccao de transicao de estado (log imediato, sem throttle)
   const curState = wallHit ? 'wall' : (results.length > 0 ? 'nonwall' : 'none');
   if (curState !== _dbgLastWallState){
     if (curState === 'wall'){
-      DBG.push('-> WALL found (reticle ON)', 'ok');
+      DBG.push('-> PAREDE encontrada (reticle ON)', 'ok');
     } else if (curState === 'nonwall'){
       const n = normalsInfo[0];
-      DBG.push('-> surface detected but NOT a wall. '
+      DBG.push('-> superficie detectada mas NAO e parede. '
         + 'normal=(' + n.x.toFixed(2) + ',' + n.y.toFixed(2) + ',' + n.z.toFixed(2)
         + ') |y|=' + Math.abs(n.y).toFixed(2)
-        + ' (limit ' + (1 - VERTICAL_DOT_MIN).toFixed(2) + ')', 'warn');
+        + ' (limite ' + (1 - VERTICAL_DOT_MIN).toFixed(2) + ')', 'warn');
     } else {
-      DBG.push('-> no hit-test at all (lost tracking / pointing at empty space)', 'warn');
+      DBG.push('-> sem nenhum hit-test (perdeu tracking / aponta p/ vazio)', 'warn');
     }
     _dbgLastWallState = curState;
   }
 
+  // resumo throttled: 1x por segundo
   if (timestamp - _dbgLastSummary > 1000){
-    let line = 'fps~' + _dbgFrameCount
-      + ' | hits now=' + results.length
+    let line = 'frames/s~' + _dbgFrameCount
+      + ' | hits agora=' + results.length
       + ' | max hits=' + _dbgMaxHits;
     if (normalsInfo.length){
       const n = normalsInfo[0];
       line += ' | normal[0]=(' + n.x.toFixed(2) + ','
         + n.y.toFixed(2) + ',' + n.z.toFixed(2) + ')'
-        + (n.wall ? ' WALL' : ' non-wall');
+        + (n.wall ? ' PAREDE' : ' nao-parede');
     }
     DBG.push(line);
     _dbgLastSummary = timestamp;
@@ -714,7 +665,7 @@ function onXRFrame(timestamp, frame){
     if (!posterPlaced){
       sizePreview.visible = true;
       sizePreview.matrix.copy(wallPose);
-      setStatus('Wall found — tap to place the poster');
+      setStatus('Parede encontrada — toque para fixar o quadro');
     } else {
       sizePreview.visible = false;
     }
@@ -722,9 +673,9 @@ function onXRFrame(timestamp, frame){
     reticle.visible = false;
     sizePreview.visible = false;
     if (!posterPlaced && results.length > 0){
-      setStatus('Detected surface is not vertical — point at the wall');
+      setStatus('Superfície detectada não é vertical — aponte para a parede');
     } else if (!posterPlaced){
-      setStatus('Looking for a wall… move the phone slowly');
+      setStatus('Procurando parede… mova o celular devagar');
     }
   }
 
