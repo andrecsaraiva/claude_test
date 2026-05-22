@@ -265,10 +265,15 @@ let hitTestSource = null;
 let modelTemplate = null;     // loaded GLB, cloned on placement
 let toastTimer = null;
 
-// pose (position+rotation) where the poster is fixed on the wall,
-// kept SEPARATE from scale so resizing keeps the same center point.
-let placedPose = new THREE.Matrix4();        // FLUSH wall pose (no offset)
-let posterTargetPose = new THREE.Matrix4();  // OFFSET pose — what the poster uses
+// pose where the poster is fixed on the wall.
+// placedPose  = FLUSH wall pose (no offset) — used by the size logic.
+// posterTargetPose = the FINAL frozen pose (offset baked in) — what the
+// poster is drawn at. Once set on tap, it NEVER changes until Reposition.
+// No anchors: the user asked for total lock — the poster must be 100%
+// immobile after placement. ARCore still tracks the CAMERA, so the frozen
+// poster correctly "stays there" in the world as the phone rotates.
+let placedPose = new THREE.Matrix4();
+let posterTargetPose = new THREE.Matrix4();
 
 // tracking smoothing state (constants live near the render loop):
 // the ARCore hit-test flickers on plain/dim walls — drops to 0 hits for
@@ -276,16 +281,6 @@ let posterTargetPose = new THREE.Matrix4();  // OFFSET pose — what the poster 
 // lerp toward new ones so the reticle glides instead of blinking.
 let lastWallPose = null;        // THREE.Matrix4 of the last good wall pose
 let lastWallTime = -1e9;        // timestamp of the last good wall hit
-
-// ---- WebXR anchors ----
-// When the poster is placed we create an XRAnchor. ARCore then keeps that
-// anchor correct as it refines its map — the poster stays glued to the
-// wall instead of drifting. createAnchor needs an XRFrame, which the
-// 'select' event doesn't carry, so onSelect just sets pendingPlacement
-// and the anchor is actually created inside onXRFrame.
-let posterAnchor = null;        // the active XRAnchor (null until placed)
-let pendingPlacement = null;    // { pose: XRRigidTransform } awaiting anchor
-let anchorSupported = false;    // set true once we confirm the API exists
 
 function setStatus(t){ statusEl.textContent = t; }
 function toast(t){
@@ -447,7 +442,7 @@ async function startAR(){
   try {
     xrSession = await navigator.xr.requestSession('immersive-ar', {
       requiredFeatures: ['hit-test'],
-      optionalFeatures: ['dom-overlay', 'anchors', 'light-estimation'],
+      optionalFeatures: ['dom-overlay', 'light-estimation'],
       domOverlay: { root: hudEl }
     });
     DBG.push('immersive-ar session created', 'ok');
@@ -477,12 +472,7 @@ async function startAR(){
     DBG.push('ERROR creating hitTestSource: ' + e.message, 'err');
   }
 
-  // check whether this session granted the anchors feature
-  anchorSupported = (xrSession.enabledFeatures
-    ? xrSession.enabledFeatures.includes('anchors')
-    : true);  // some browsers don't expose enabledFeatures; assume yes
-  DBG.push('anchors feature: ' + (anchorSupported ? 'available' : 'NOT available'),
-    anchorSupported ? 'ok' : 'warn');
+  DBG.push('placement mode: FROZEN (poster locked solid after tap)');
 
   xrSession.addEventListener('end', onSessionEnd);
   xrSession.addEventListener('select', onSelect);
@@ -498,8 +488,6 @@ async function startAR(){
 function onSessionEnd(){
   renderer.setAnimationLoop(null);
   if (hitTestSource){ hitTestSource.cancel?.(); hitTestSource = null; }
-  if (posterAnchor){ posterAnchor.delete?.(); posterAnchor = null; }
-  pendingPlacement = null;
   xrSession = null;
   hudEl.style.display = 'none';
   introEl.style.display = 'flex';
@@ -512,11 +500,6 @@ exitBtn.addEventListener('click', ()=> xrSession && xrSession.end());
 
 resetBtn.addEventListener('click', ()=>{
   if (posterModel){ scene.remove(posterModel); posterModel = null; }
-  if (posterAnchor){
-    posterAnchor.delete?.();          // release the ARCore anchor
-    posterAnchor = null;
-  }
-  pendingPlacement = null;
   posterPlaced = false;
   reticle.visible = false;
   lastWallPose = null;          // clear smoothing so the next lock snaps clean
@@ -682,9 +665,11 @@ function applyPoseToPoster(poseMatrix){
   posterModel.updateMatrix();
 }
 
-// ---- tap to place / move the poster ----
-// createAnchor needs an XRFrame, which the 'select' event doesn't carry.
-// So onSelect captures the OFFSET pose and onXRFrame creates the anchor.
+// ---- tap to place the poster ----
+// FROZEN placement: we bake the wall offset into the pose ONCE here and
+// store it in posterTargetPose. Nothing ever moves the poster again until
+// Reposition is pressed. ARCore keeps tracking the camera, so the frozen
+// poster correctly stays in place in the world as the phone rotates.
 function onSelect(){
   DBG.push('TAP on screen. reticle.visible=' + reticle.visible);
   if (!reticle.visible) {
@@ -695,29 +680,17 @@ function onSelect(){
     posterModel = modelTemplate.clone(true);
     scene.add(posterModel);
   }
-  // reticle.matrix is the FLUSH wall pose. Bake the offset in ONCE here.
-  placedPose.copy(reticle.matrix);                 // flush pose (for size logic)
-  posterTargetPose.copy(offsetPoseFromFlush(reticle.matrix));  // offset pose
+  // reticle.matrix is the FLUSH wall pose. Bake the offset in ONCE.
+  placedPose.copy(reticle.matrix);                            // flush (size logic)
+  posterTargetPose.copy(offsetPoseFromFlush(reticle.matrix)); // FINAL frozen pose
 
-  // the anchor is created at the OFFSET pose, so ARCore tracks the exact
-  // point where the poster sits — no offset math happens after this.
-  const pos = new THREE.Vector3();
-  const quat = new THREE.Quaternion();
-  posterTargetPose.decompose(pos, quat, new THREE.Vector3());
-  pendingPlacement = {
-    position: { x: pos.x, y: pos.y, z: pos.z },
-    orientation: { x: quat.x, y: quat.y, z: quat.z, w: quat.w }
-  };
-
-  // show the poster immediately (anchor takes over within a frame or two)
   applyPoseToPoster(posterTargetPose);
   posterPlaced = true;
   resetBtn.classList.remove('hidden');
-  setStatus('Poster placed — tap elsewhere to move it');
-  toast('Poster placed at real size');
-  DBG.push('poster PLACED (' + SIZES[currentSizeIndex].label
-    + ') offset=' + (WALL_OFFSET*100).toFixed(1) + 'cm baked in'
-    + (anchorSupported ? ' — anchoring…' : ' — no anchor API'), 'ok');
+  setStatus('Poster locked. Tap Reposition to move it.');
+  toast('Poster locked at real size');
+  DBG.push('poster FROZEN (' + SIZES[currentSizeIndex].label
+    + ') offset=' + (WALL_OFFSET*100).toFixed(1) + 'cm — immobile until reset', 'ok');
 }
 
 // ---- render loop ----
@@ -731,9 +704,6 @@ let _dbgFirstWallLogged = false;
 // smoothing constants (state vars declared near the top)
 const HOLD_MS = 600;            // keep last wall pose this long after a drop
 const SMOOTH = 0.35;            // 0..1 — higher = snappier, lower = smoother
-// if the anchor pose jumps more than this (m) in one frame, reject it —
-// ARCore occasionally glitches in cluttered rooms; we hold the last pose.
-const JUMP_LIMIT = 0.25;
 const _smPos = new THREE.Vector3();
 const _smQuat = new THREE.Quaternion();
 const _smScl = new THREE.Vector3();
@@ -744,49 +714,10 @@ function onXRFrame(timestamp, frame){
   if (!frame) return;
   if (!hitTestSource){ renderer.render(scene, camera); return; }
 
-  // ---- anchor: create one if a placement is pending ----
-  if (pendingPlacement && anchorSupported && frame.createAnchor){
-    const xform = new XRRigidTransform(
-      pendingPlacement.position, pendingPlacement.orientation);
-    const pend = pendingPlacement;
-    pendingPlacement = null;            // consume it (avoid double-create)
-    frame.createAnchor(xform, xrRefSpace).then(anchor => {
-      posterAnchor = anchor;
-      DBG.push('anchor created — poster locked to ARCore map', 'ok');
-    }).catch(err => {
-      DBG.push('anchor failed (' + (err && err.message || err)
-        + ') — using fixed pose', 'warn');
-    });
-  } else if (pendingPlacement && !anchorSupported){
-    pendingPlacement = null;            // no anchor API: keep the fixed pose
-  }
-
-  // ---- anchor: each frame, follow the ARCore-corrected pose ----
-  // The anchor was created at the OFFSET pose, so its pose IS already the
-  // poster's final pose. We copy it straight in — no normal recalculation,
-  // no offset re-addition. That double-application was what made the
-  // poster creep/jump forward when the phone moved. We also reject wild
-  // jumps: if the anchor pose leaps more than JUMP_LIMIT in one frame,
-  // we keep the previous pose (ARCore occasionally glitches in busy rooms).
-  if (posterAnchor && posterModel){
-    const aPose = frame.getPose(posterAnchor.anchorSpace, xrRefSpace);
-    if (aPose){
-      const m = new THREE.Matrix4().fromArray(aPose.transform.matrix);
-      const newPos = new THREE.Vector3();
-      m.decompose(newPos, new THREE.Quaternion(), new THREE.Vector3());
-      const prevPos = new THREE.Vector3();
-      posterTargetPose.decompose(prevPos, new THREE.Quaternion(), new THREE.Vector3());
-      const jump = newPos.distanceTo(prevPos);
-      if (jump < JUMP_LIMIT){
-        posterTargetPose.copy(m);     // accept the corrected pose
-        applyPoseToPoster(m);
-      } else {
-        // anchor glitched — keep the last good pose, log it
-        DBG.push('anchor jump ' + (jump*100).toFixed(0)
-          + 'cm rejected — holding last pose', 'warn');
-      }
-    }
-  }
+  // No anchor logic: once placed, the poster is frozen. posterModel keeps
+  // posterTargetPose forever — nothing here touches it. The poster is part
+  // of the scene; ARCore moves the CAMERA each frame, which is what makes
+  // the frozen poster correctly stay on the wall as the phone rotates.
 
   const results = frame.getHitTestResults(hitTestSource);
   _dbgFrameCount++;

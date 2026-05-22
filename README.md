@@ -66,27 +66,31 @@ amplificando deslocamentos internos do modelo. Agora a escala é aplicada
 via posterModel.scale (propriedade do three.js) e o offset é aplicado uma
 única vez, como distância fixa de 1,5 cm ao longo da normal da parede.
 
-**Tracking instável / pisca** — melhorado dentro do possível:
+**Comportamento de posicionamento — congelamento puro.**
 
-- Suavização: mantém a última pose válida por 600 ms após uma falha
-  momentânea e interpola suave, então o reticle desliza em vez de piscar.
-- Âncoras WebXR: ao fixar o quadro, é criada uma XRAnchor. O ARCore passa
-  a gerenciar esse ponto e o reposiciona conforme refina o mapa do
-  ambiente. O painel de LOG mostra "anchor created" quando funciona.
-- Anti-salto: se a âncora dá um pulo maior que 25 cm num único frame
-  (o ARCore às vezes "glitcha" em ambientes com muitos objetos), o
-  código rejeita esse frame e segura a última pose boa.
+Antes de fixar: o reticle e o contorno seguem a superfície em tempo real.
+Mirou na parede, posiciona na parede; mirou na lateral de um móvel, o
+quadro gira para o ângulo daquela superfície. Busca contínua.
 
-**Corrigido — quadro pulava para frente.** O offset da parede estava
-sendo re-somado a cada frame (o loop ressincronizava a pose com a âncora
-e somava o offset de novo), acumulando ~1 cm por frame. Agora o offset é
-embutido UMA vez, na criação da âncora; o loop apenas copia a pose. O
-quadro fica estável a 1 cm da parede.
+Depois de fixar (toque): o quadro CONGELA. A pose é gravada uma vez e o
+quadro fica 100% imóvel no mundo — nada o move até apertar Reposition. O
+ARCore continua rastreando a câmera, então o quadro congelado "permanece
+lá" corretamente conforme você gira o celular, como um objeto real.
 
-**Nota sobre detecção:** uma tentativa anterior de filtrar o hit-test só
-por planos (entityTypes:plane) deixou a detecção MUITO mais lenta (~36 s
-contra ~13 s) em parede lisa. Revertido — o hit-test usa pontos de
-característica + planos, que aparecem bem antes.
+As âncoras WebXR foram REMOVIDAS de propósito. A função da âncora é
+reajustar o objeto conforme o ARCore corrige o mapa — o oposto de "trava
+total". Em ambiente cheio de objetos, era esse reajuste que causava os
+saltos. Congelamento puro é mais simples e mais estável, e é o certo
+para gravar o vídeo.
+
+Os botões de tamanho, com o quadro travado, trocam o tamanho NO MESMO
+LUGAR (escala a partir do centro) — não re-miram. Para mover o quadro,
+use Reposition.
+
+**Tracking / detecção.** A suavização do reticle (segura a última pose
+600 ms, interpola suave) continua. A detecção em parede lisa à noite é
+limitação física do ARCore — filmar com boa luz e com algum detalhe na
+parede por perto ajuda bastante.
 
 Limitação honesta: a dificuldade de achar parede à noite / em parede lisa
 é física do ARCore (precisa de contraste visual). O código suaviza o
