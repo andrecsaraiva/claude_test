@@ -1,384 +1,65 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Star Wars: Episode IV - A New Hope (1977) - Classic Pose Poster | AllPosters</title>
+<title>AR Try-On — Escaneie para começar</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  :root{
-    --ink:#1a1a1a; --black:#161616; --teal:#1bb5d8; --teal-soft:#5fd3ec;
-    --pink:#ec1c8e; --green:#5ad427; --orange:#ff7a00;
-    --line:#dcdcdc; --grey-txt:#6a6a6a; --card:#ffffff;
+  body {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    font-family:-apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    background:#0d0d0f; color:#fff; padding:24px;
   }
-  body{
-    font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
-    background:#ffffff; color:var(--ink); -webkit-font-smoothing:antialiased;
+  .card {
+    background:#16161a; border:1px solid #26262c; border-radius:20px;
+    padding:36px 32px; max-width:380px; width:100%; text-align:center;
   }
-
-  /* ---------- top bars ---------- */
-  .topbar{
-    background:var(--black); color:#fff; font-size:12px;
-    display:flex; justify-content:center; gap:0; padding:7px 0;
+  h1 { font-size:21px; font-weight:650; margin-bottom:8px; }
+  .sub { font-size:13px; color:#9a9aa2; line-height:1.5; margin-bottom:26px; }
+  #qrbox {
+    background:#fff; width:240px; height:240px; margin:0 auto 22px;
+    border-radius:14px; display:flex; align-items:center; justify-content:center;
   }
-  .topbar span{ padding:0 16px; border-right:0; position:relative; }
-  .topbar span + span::before{
-    content:"|"; color:var(--pink); position:absolute; left:-3px;
+  #qrbox canvas { width:212px; height:212px; image-rendering:pixelated; }
+  #qrbox .msg { color:#888; font-size:12px; }
+  #qrbox .err { color:#c0392b; font-size:12px; padding:0 12px; }
+  .url {
+    font-size:11px; color:#6e6e78; word-break:break-all;
+    background:#0d0d0f; border:1px solid #26262c; border-radius:8px;
+    padding:8px 10px; margin-bottom:18px;
   }
-  .nav{
-    background:var(--black); padding:10px 26px 4px;
-    display:flex; align-items:center; gap:20px;
+  .steps { text-align:left; font-size:13px; color:#b8b8c0; line-height:1.7; }
+  .steps b { color:#fff; }
+  .open-btn {
+    display:inline-block; margin-top:18px; padding:12px 26px;
+    background:#f5f3ee; color:#16161a; border-radius:100px;
+    font-weight:600; font-size:14px; text-decoration:none;
   }
-  .logo{
-    color:#fff; font-size:30px; font-weight:800; letter-spacing:-1px;
-    white-space:nowrap; font-style:italic;
-  }
-  .logo sup{ font-size:10px; font-style:normal; }
-  .search{
-    flex:1; display:flex; height:38px;
-  }
-  .search input{
-    flex:1; border:none; padding:0 14px; font-size:14px; outline:none;
-  }
-  .search button{
-    width:46px; border:none; background:var(--pink); cursor:pointer;
-    display:flex; align-items:center; justify-content:center;
-  }
-  .acct{ color:var(--teal); font-size:14px; font-weight:600; white-space:nowrap; }
-  .acct .caret{ font-size:10px; }
-  .help{
-    width:24px; height:24px; border:2px solid var(--green); border-radius:50%;
-    color:var(--green); display:flex; align-items:center; justify-content:center;
-    font-size:13px; font-weight:700;
-  }
-  .cart{ color:var(--orange); font-size:22px; }
-  .navlinks{
-    background:var(--black); display:flex; justify-content:center; gap:34px;
-    padding:4px 0 12px;
-  }
-  .navlinks a{
-    color:var(--teal); text-decoration:none; font-size:14px; font-weight:700;
-  }
-
-  /* ---------- layout ---------- */
-  .wrap{ max-width:1500px; margin:0 auto; padding:22px 26px 50px; }
-  .crumbs{ font-size:11px; color:#b6b6b6; letter-spacing:.5px; margin-bottom:14px; }
-  .crumbs b{ color:#b6b6b6; font-weight:700; }
-  .grid{
-    display:grid; grid-template-columns:1fr 1fr 0.62fr; gap:30px;
-    align-items:start;
-  }
-
-  /* ---------- left: gallery ---------- */
-  .gallery{ display:flex; flex-direction:column; align-items:center; }
-  .stage{
-    width:100%; max-width:430px; aspect-ratio:658/1000;
-    display:flex; align-items:center; justify-content:center;
-    position:relative; background:#fff;
-  }
-  .stage img.poster-main{
-    max-width:100%; max-height:100%; display:block;
-    box-shadow:0 4px 22px rgba(0,0,0,.22);
-  }
-  #viewer3d{ width:100%; height:100%; display:none; cursor:grab; }
-  #viewer3d:active{ cursor:grabbing; }
-  .viewer-badge{
-    position:absolute; top:10px; left:10px; display:none;
-    background:rgba(0,0,0,.7); color:#fff; font-size:11px;
-    padding:5px 10px; border-radius:3px; letter-spacing:.4px;
-  }
-  .viewer-qrbtn{
-    position:absolute; bottom:12px; right:12px; display:none;
-    background:#fff; color:var(--ink); border:1px solid var(--line);
-    border-radius:6px; padding:9px 13px; font-size:12px; font-weight:700;
-    cursor:pointer; align-items:center; gap:7px;
-    box-shadow:0 2px 10px rgba(0,0,0,.18);
-  }
-  .viewer-qrbtn svg{ width:15px; height:15px; }
-  .stage.is3d #viewer3d{ display:block; }
-  .stage.is3d .poster-main{ display:none; }
-  .stage.is3d .viewer-badge,
-  .stage.is3d .viewer-qrbtn{ display:flex; }
-
-  .stage-label{ margin:12px 0 14px; font-size:13px; letter-spacing:1px; }
-
-  .thumbs{ display:flex; gap:6px; margin-top:2px; }
-  .thumb{
-    width:64px; height:64px; border:1px solid #d6d6d6;
-    cursor:pointer; overflow:hidden; background:#fff; padding:3px;
-    display:flex; align-items:center; justify-content:center;
-    transition:border-color .12s, box-shadow .12s;
-  }
-  .thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
-  .thumb:hover{ border-color:#999; }
-  .thumb.active{
-    border:2px solid #555; padding:2px;
-    box-shadow:0 0 0 1px #fff inset;
-  }
-  .thumb.ar-thumb{
-    background:linear-gradient(140deg,#1bb5d8,#0c7c98);
-    color:#fff; flex-direction:column; gap:2px; padding:4px;
-    border-color:#0c7c98;
-  }
-  .thumb.ar-thumb:hover{ border-color:#06556b; }
-  .thumb.ar-thumb svg{ width:24px; height:24px; }
-  .thumb.ar-thumb span{ font-size:8.5px; font-weight:800; letter-spacing:.4px; }
-
-  /* ---------- middle: product ---------- */
-  .product{
-    border:1px solid var(--line); border-radius:3px; padding:22px 24px;
-  }
-  .ptitle-row{ display:flex; justify-content:space-between; gap:12px; }
-  .ptitle{ font-size:22px; font-weight:800; line-height:1.25; }
-  .heart{ font-size:20px; color:#444; flex-shrink:0; }
-  .brand{
-    display:inline-block; margin:10px 0 18px; font-size:13px;
-    color:var(--ink); text-decoration:underline;
-  }
-  .section-label{ font-size:13px; font-weight:700; margin-bottom:8px; }
-  .sizes{ display:flex; gap:8px; margin-bottom:8px; }
-  .size{
-    border:1px solid #bdbdbd; background:#fff; border-radius:3px;
-    padding:8px 14px; font-size:13px; cursor:default; color:#333;
-  }
-  .size.active{
-    border-color:var(--teal); background:#e8f9fd; color:#0c7c98; font-weight:700;
-  }
-  .finished{ font-size:12px; font-weight:700; margin-bottom:18px; }
-
-  .frames{ display:flex; flex-wrap:wrap; gap:14px; margin-bottom:20px; }
-  .frame{ width:88px; text-align:center; }
-  .frame .fimg{
-    width:88px; height:118px; border:1px solid var(--line);
-    display:flex; align-items:center; justify-content:center;
-    background:#fafafa; overflow:hidden;
-  }
-  .frame.sel .fimg{ border:2px solid var(--teal); }
-  .frame .fimg img{ width:100%; height:100%; object-fit:cover; }
-  .frame .fname{ font-size:11px; font-weight:700; margin-top:6px; line-height:1.3; }
-  .frame .fprice{ font-size:12px; font-weight:800; margin-top:2px; }
-
-  .more-frames{
-    width:100%; background:var(--teal); color:#0a2730; border:none;
-    padding:13px; font-size:13px; font-weight:700; cursor:default;
-    border-radius:2px;
-  }
-
-  /* ---------- right: buy box ---------- */
-  .buy{
-    border:1px solid var(--line); border-radius:3px; padding:22px 22px 26px;
-  }
-  .price{ font-size:30px; font-weight:800; }
-  .arrives{ font-size:13px; margin:10px 0 16px; color:#222; }
-  .arrives u{ font-weight:700; }
-  .add-cart{
-    width:100%; background:var(--green); color:#0c2b06; border:none;
-    padding:14px; font-size:16px; font-weight:700; border-radius:2px;
-    cursor:default; margin-bottom:12px;
-  }
-  .paypal{ font-size:12px; color:#333; line-height:1.5; }
-  .paypal .pp{ color:#003087; font-weight:800; font-style:italic; }
-  .paypal a{ color:var(--teal); }
-
-  /* ---------- QR modal ---------- */
-  .modal-bg{
-    position:fixed; inset:0; background:rgba(0,0,0,.6);
-    display:none; align-items:center; justify-content:center; z-index:100;
-    padding:20px;
-  }
-  .modal-bg.open{ display:flex; }
-  .modal{
-    background:#fff; border-radius:14px; max-width:360px; width:100%;
-    padding:30px 28px; text-align:center; position:relative;
-    box-shadow:0 20px 60px rgba(0,0,0,.4);
-  }
-  .modal h3{ font-size:19px; font-weight:800; margin-bottom:6px; }
-  .modal p{ font-size:13px; color:var(--grey-txt); line-height:1.5; margin-bottom:20px; }
-  .modal .qrbox{
-    width:210px; height:210px; margin:0 auto 18px; background:#fff;
-    border:1px solid var(--line); border-radius:10px;
-    display:flex; align-items:center; justify-content:center;
-  }
-  .modal .qrbox canvas{ width:186px; height:186px; image-rendering:pixelated; }
-  .modal .steps{ font-size:12px; color:#444; text-align:left; line-height:1.7; }
-  .modal .steps b{ color:var(--ink); }
-  .modal .close{
-    position:absolute; top:12px; right:14px; border:none; background:none;
-    font-size:22px; color:#999; cursor:pointer; line-height:1;
-  }
-  .modal .open-direct{
-    display:inline-block; margin-top:16px; font-size:12px; color:var(--teal);
-    text-decoration:underline; cursor:pointer;
-  }
-
-  @media(max-width:1100px){
-    .grid{ grid-template-columns:1fr; }
-    .topbar{ font-size:11px; }
-  }
+  .note { font-size:11px; color:#5a5a64; margin-top:18px; }
 </style>
 </head>
 <body>
+  <div class="card">
+    <h1>Veja o quadro na sua parede</h1>
+    <p class="sub">Experiência de realidade aumentada — projete o poster em tamanho real antes de comprar.</p>
 
-<!-- ===== top promo bar ===== -->
-<div class="topbar">
-  <span>Print Your Own Photos</span>
-  <span>Get Best Selling Posters</span>
-  <span>Explore New Arrivals</span>
-</div>
+    <div id="qrbox"><span class="msg">gerando QR…</span></div>
+    <div class="url" id="urltext">—</div>
 
-<!-- ===== nav ===== -->
-<div class="nav">
-  <div class="logo">Allposters<sup>®</sup></div>
-  <div class="search">
-    <input type="text" placeholder="Search Allposters.com" disabled>
-    <button tabindex="-1">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
-        <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/>
-      </svg>
-    </button>
-  </div>
-  <div class="acct">My Account <span class="caret">▾</span></div>
-  <div class="help">?</div>
-  <div class="cart">🛒</div>
-</div>
-<div class="navlinks">
-  <a href="#">Best Sellers</a><a href="#">Subjects</a><a href="#">Custom Photos</a>
-  <a href="#">New Arrivals</a><a href="#">Art</a><a href="#">Brands</a>
-  <a href="#">More Products</a><a href="#">Sale</a>
-</div>
-
-<!-- ===== main ===== -->
-<div class="wrap">
-  <div class="crumbs"><b>ENTERTAINMENT</b> &nbsp;//&nbsp; <b>COMICS</b></div>
-
-  <div class="grid">
-
-    <!-- LEFT: gallery -->
-    <div class="gallery">
-      <div class="stage" id="stage">
-        <img class="poster-main" id="posterMain" src="poster_image.jpg" alt="Star Wars poster">
-        <canvas id="viewer3d"></canvas>
-        <div class="viewer-badge">3D VIEW · drag to rotate</div>
-        <button class="viewer-qrbtn" id="viewerQrBtn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-            <rect x="3" y="14" width="7" height="7"/><line x1="14" y1="14" x2="14" y2="21"/>
-            <line x1="17" y1="14" x2="21" y2="14"/><line x1="21" y1="17" x2="21" y2="21"/>
-            <line x1="17" y1="21" x2="17" y2="17"/>
-          </svg>
-          View in your room (AR)
-        </button>
-      </div>
-      <div class="stage-label">POSTER</div>
-      <div class="thumbs" id="thumbs">
-        <button class="thumb active" data-mode="image" data-img="poster_image.jpg">
-          <img src="poster_thumb.jpg" alt="Star Wars poster">
-        </button>
-        <button class="thumb" data-mode="image" data-img="room1.jpg">
-          <img src="room1_thumb.jpg" alt="poster in a room">
-        </button>
-        <button class="thumb" data-mode="image" data-img="room2.jpg">
-          <img src="room2_thumb.jpg" alt="poster in a room">
-        </button>
-        <button class="thumb" data-mode="image" data-img="room3.jpg">
-          <img src="room3_thumb.jpg" alt="poster in a room">
-        </button>
-        <button class="thumb ar-thumb" data-mode="3d" title="View in 3D / AR">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/>
-          </svg>
-          <span>3D / AR</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- MIDDLE: product -->
-    <div class="product">
-      <div class="ptitle-row">
-        <div class="ptitle">Star Wars: Episode IV - A New Hope (1977) - Classic Pose Poster</div>
-        <div class="heart">♡</div>
-      </div>
-      <a class="brand" href="#">by Trends International</a>
-
-      <div class="section-label">Choose size</div>
-      <div class="sizes">
-        <div class="size">13" x 19"</div>
-        <div class="size active">15" x 22"</div>
-        <div class="size">22" x 34"</div>
-      </div>
-      <div class="finished">Finished Size: 15" x 22"</div>
-
-      <div class="frames">
-        <div class="frame sel">
-          <div class="fimg"><img src="poster_thumb.jpg" alt=""></div>
-          <div class="fname">Just the<br>Poster</div>
-          <div class="fprice">$18.99</div>
-        </div>
-        <div class="frame">
-          <div class="fimg" style="background:#1a1a1a;">
-            <img src="poster_thumb.jpg" alt="" style="width:74%;height:84%;object-fit:cover;">
-          </div>
-          <div class="fname">Essential<br>Black</div>
-          <div class="fprice">$49.99</div>
-        </div>
-        <div class="frame">
-          <div class="fimg" style="background:#1a1a1a;">
-            <img src="poster_thumb.jpg" alt="" style="width:70%;height:80%;object-fit:cover;">
-          </div>
-          <div class="fname">Chelsea<br>Black</div>
-          <div class="fprice">$107.99</div>
-        </div>
-        <div class="frame">
-          <div class="fimg" style="background:#6b4a2b;">
-            <img src="poster_thumb.jpg" alt="" style="width:76%;height:86%;object-fit:cover;">
-          </div>
-          <div class="fname">Wood<br>Mount</div>
-          <div class="fprice">$77.99</div>
-        </div>
-        <div class="frame">
-          <div class="fimg" style="background:#1a1a1a;">
-            <img src="poster_thumb.jpg" alt="" style="width:72%;height:82%;object-fit:cover;">
-          </div>
-          <div class="fname">Laminate</div>
-          <div class="fprice">$43.99</div>
-        </div>
-      </div>
-
-      <button class="more-frames" tabindex="-1">See More Frame Options</button>
-    </div>
-
-    <!-- RIGHT: buy box -->
-    <div class="buy">
-      <div class="price">$18.99</div>
-      <div class="arrives">Arrives by Sat, May 30 to <u>66952</u> ▾</div>
-      <button class="add-cart" tabindex="-1">Add to Cart</button>
-      <div class="paypal">
-        Buy now and pay later with <span class="pp">PayPal</span>.<br>
-        <a href="#">Learn more</a>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<!-- ===== QR modal ===== -->
-<div class="modal-bg" id="modalBg">
-  <div class="modal">
-    <button class="close" id="modalClose">✕</button>
-    <h3>View this poster in your room</h3>
-    <p>Scan with your Android phone to open the augmented-reality try-on.</p>
-    <div class="qrbox" id="qrbox"><span style="font-size:12px;color:#999;">generating…</span></div>
     <div class="steps">
-      <div><b>1.</b> Open the camera on your Android phone.</div>
-      <div><b>2.</b> Point it at the QR code above.</div>
-      <div><b>3.</b> Tap the link to open it in <b>Chrome</b>.</div>
-      <div><b>4.</b> Point at your wall and tap to place the poster.</div>
+      <div><b>1.</b> Abra a câmera do Android e aponte para o QR.</div>
+      <div><b>2.</b> Toque no link para abrir no <b>Chrome</b>.</div>
+      <div><b>3.</b> Permita o acesso à câmera.</div>
+      <div><b>4.</b> Aponte para a parede e toque para fixar.</div>
     </div>
-    <span class="open-direct" id="openDirect">Open AR on this device</span>
-  </div>
-</div>
 
-<!-- ===== QR generator (embedded, no CDN) ===== -->
+    <a class="open-btn" id="openLink" href="ar.html">Abrir AR neste aparelho</a>
+
+    <p class="note">Requer Android com Chrome e ARCore (WebXR).</p>
+  </div>
+
+<!-- Gerador de QR embutido (sem CDN, sem dependencias externas) -->
 <script>
 // QR Code generator - implementacao autocontida, dominio publico.
 // Baseada no algoritmo classico de Kazuhiko Arase (MIT/dominio publico).
@@ -693,166 +374,23 @@
 
 </script>
 
-<!-- ===== three.js for the GLB viewer ===== -->
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+<script>
+  // URL absoluta de ar.html — funciona em qualquer host sem editar nada.
+  var arURL = new URL('ar.html', window.location.href).href;
+  document.getElementById('urltext').textContent = arURL;
+  document.getElementById('openLink').href = arURL;
+
+  var box = document.getElementById('qrbox');
+  try {
+    var canvas = document.createElement('canvas');
+    SimpleQR.toCanvas(canvas, arURL, { size: 212, margin: 4 });
+    box.innerHTML = '';
+    box.appendChild(canvas);
+  } catch (e) {
+    box.innerHTML = '<span class="err">Erro ao gerar QR: ' + e.message +
+      '<br>Use o botão abaixo neste aparelho.</span>';
+    console.error('QR error:', e);
   }
-}
-</script>
-
-<script type="module">
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-
-// ---------- config ----------
-const GLB_URL  = './poster.glb';
-const HDRI_URL = './studio.hdr';
-const AR_URL   = new URL('ar.html', location.href).href;
-
-// ---------- gallery: thumbs ----------
-const stage     = document.getElementById('stage');
-const posterMain= document.getElementById('posterMain');
-const thumbs    = Array.from(document.querySelectorAll('.thumb'));
-let viewerStarted = false;
-
-thumbs.forEach(t => {
-  t.addEventListener('click', ()=>{
-    thumbs.forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    if (t.dataset.mode === 'image'){
-      stage.classList.remove('is3d');
-      posterMain.src = t.dataset.img;
-    } else {
-      stage.classList.add('is3d');
-      startViewer();
-    }
-  });
-});
-
-// ---------- QR modal ----------
-const modalBg = document.getElementById('modalBg');
-document.getElementById('viewerQrBtn').addEventListener('click', openModal);
-document.getElementById('modalClose').addEventListener('click', ()=> modalBg.classList.remove('open'));
-modalBg.addEventListener('click', e => { if (e.target === modalBg) modalBg.classList.remove('open'); });
-document.getElementById('openDirect').addEventListener('click', ()=> location.href = AR_URL);
-
-let qrDrawn = false;
-function openModal(){
-  modalBg.classList.add('open');
-  if (!qrDrawn){
-    try {
-      const c = document.createElement('canvas');
-      SimpleQR.toCanvas(c, AR_URL, { size:186, margin:3 });
-      const box = document.getElementById('qrbox');
-      box.innerHTML = ''; box.appendChild(c);
-      qrDrawn = true;
-    } catch(e){
-      document.getElementById('qrbox').innerHTML =
-        '<span style="font-size:11px;color:#c0392b;">QR error</span>';
-    }
-  }
-}
-
-// ---------- 3D viewer ----------
-let renderer, scene, camera, controls;
-
-function startViewer(){
-  if (viewerStarted) return;
-  viewerStarted = true;
-
-  const canvas = document.getElementById('viewer3d');
-  const w = stage.clientWidth, h = stage.clientHeight;
-
-  renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setSize(w, h, false);
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-
-  scene = new THREE.Scene();
-
-  camera = new THREE.PerspectiveCamera(35, w/h, 0.01, 100);
-  camera.position.set(0, 0, 1.6);
-
-  controls = new OrbitControls(camera, canvas);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
-  controls.enablePan = false;
-  controls.minDistance = 0.7;
-  controls.maxDistance = 3.0;
-  controls.autoRotate = true;
-  controls.autoRotateSpeed = 1.4;
-  // stop auto-rotate once the user grabs it
-  controls.addEventListener('start', ()=>{ controls.autoRotate = false; });
-
-  // lights (complement the HDRI environment)
-  const key = new THREE.DirectionalLight(0xffffff, 1.4);
-  key.position.set(2, 3, 4);
-  scene.add(key);
-  const fill = new THREE.DirectionalLight(0xffffff, 0.5);
-  fill.position.set(-3, 1, -2);
-  scene.add(fill);
-  scene.add(new THREE.AmbientLight(0xffffff, 0.25));
-
-  // immediate fallback environment so it never looks flat while HDRI loads
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-
-  // load the real HDRI for high-quality reflections/lighting
-  new RGBELoader().load(HDRI_URL, hdr => {
-    hdr.mapping = THREE.EquirectangularReflectionMapping;
-    const env = pmrem.fromEquirectangular(hdr).texture;
-    scene.environment = env;
-    hdr.dispose(); pmrem.dispose();
-  }, undefined, ()=>{ /* keep RoomEnvironment fallback on error */ });
-
-  // load the poster GLB
-  new GLTFLoader().load(GLB_URL, gltf => {
-    const model = gltf.scene;
-    // center + frame the model nicely
-    const box = new THREE.Box3().setFromObject(model);
-    const center = new THREE.Vector3(); box.getCenter(center);
-    const size = new THREE.Vector3(); box.getSize(size);
-    model.position.sub(center);
-    // fit camera distance to the model height
-    const maxDim = Math.max(size.x, size.y);
-    camera.position.set(0, 0, maxDim * 2.4);
-    controls.minDistance = maxDim * 1.2;
-    controls.maxDistance = maxDim * 5;
-    controls.update();
-    // give the poster a subtle material polish
-    model.traverse(o => {
-      if (o.isMesh && o.material){
-        o.material.envMapIntensity = 1.15;
-        o.material.needsUpdate = true;
-      }
-    });
-    scene.add(model);
-  }, undefined, err => {
-    console.error('GLB load failed', err);
-  });
-
-  addEventListener('resize', onResize);
-  renderer.setAnimationLoop(()=>{
-    controls.update();
-    renderer.render(scene, camera);
-  });
-}
-
-function onResize(){
-  if (!renderer) return;
-  const w = stage.clientWidth, h = stage.clientHeight;
-  renderer.setSize(w, h, false);
-  camera.aspect = w/h;
-  camera.updateProjectionMatrix();
-}
 </script>
 </body>
 </html>
