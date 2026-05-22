@@ -267,7 +267,8 @@ let toastTimer = null;
 
 // pose (position+rotation) where the poster is fixed on the wall,
 // kept SEPARATE from scale so resizing keeps the same center point.
-let placedPose = new THREE.Matrix4();
+let placedPose = new THREE.Matrix4();        // FLUSH wall pose (no offset)
+let posterTargetPose = new THREE.Matrix4();  // OFFSET pose — what the poster uses
 
 // tracking smoothing state (constants live near the render loop):
 // the ARCore hit-test flickers on plain/dim walls — drops to 0 hits for
@@ -403,9 +404,11 @@ function applySize(idx, fromUser){
   // rebuild the size preview outline at the new dimensions
   refreshSizePreview();
 
-  // if the poster is already on the wall, rescale it in place
+  // if the poster is already on the wall, rescale it in place.
+  // posterTargetPose holds the current (offset, anchor-corrected) pose;
+  // applyPoseToPoster re-applies it with the new scale, center fixed.
   if (posterPlaced && posterModel){
-    updatePosterMatrix();
+    applyPoseToPoster(posterTargetPose);
   }
   if (fromUser){
     DBG.push('size changed -> ' + SIZES[idx].label
@@ -463,19 +466,13 @@ async function startAR(){
   DBG.push('reference spaces local + viewer OK', 'ok');
 
   try {
-    // Prefer plane hits over raw feature points: planes are far steadier
-    // on plain/dim walls. entityTypes is optional in the spec, so we try
-    // it first and fall back to a plain request if the browser rejects it.
-    try {
-      hitTestSource = await xrSession.requestHitTestSource({
-        space: viewerSpace,
-        entityTypes: ['plane']
-      });
-      DBG.push('hitTestSource created (space=viewer, entityTypes=plane)', 'ok');
-    } catch(inner){
-      hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
-      DBG.push('hitTestSource created (space=viewer, no entityTypes)', 'ok');
-    }
+    // Plain hit-test (feature points + planes). An earlier attempt to
+    // restrict this to entityTypes:['plane'] made wall detection MUCH
+    // slower on plain walls (~36s vs ~13s) — ARCore only returns a plane
+    // hit once it has consolidated a whole plane. Feature points show up
+    // far sooner, so we keep the unfiltered request.
+    hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
+    DBG.push('hitTestSource created (space=viewer)', 'ok');
   } catch(e){
     DBG.push('ERROR creating hitTestSource: ' + e.message, 'err');
   }
@@ -625,9 +622,9 @@ function isWall(normal){
 
 // Flush pose ON the wall surface: position = hit point (NO offset here),
 // rotation so local +Z faces away from the wall.
-// The wall offset is applied exactly once, later, in updatePosterMatrix.
-// The reticle uses this flush pose directly (a target marker sits on the
-// surface); the poster gets pushed out by WALL_OFFSET.
+// The wall offset is applied exactly once, in offsetPoseFromFlush, at
+// placement time. The reticle uses this flush pose directly (a target
+// marker sits on the surface); the poster uses the offset pose.
 function poseOnWall(hitMatrix){
   const p = new THREE.Vector3();
   const q = new THREE.Quaternion();
@@ -648,40 +645,46 @@ function poseOnWall(hitMatrix){
   return out;
 }
 
-// Apply pose + size to the poster.
-// CRITICAL: scale is applied via posterModel.scale (a THREE property),
-// NOT by multiplying scaleM into the pose matrix. Multiplying scale into
-// a matrix that wraps a group with internal offsets (from auto-center)
-// amplifies those offsets and throws the poster off the wall.
-// poseMatrix defaults to placedPose, but once an anchor is live the
-// render loop passes the anchor-corrected pose so the poster follows
-// ARCore's map refinements and stays glued to the wall.
-function updatePosterMatrix(poseMatrix){
-  if (!posterModel) return;
-  const src = poseMatrix || placedPose;
-  const f = scaleForSize(currentSizeIndex);
-
+// Build the OFFSET pose: take a flush wall pose and push it WALL_OFFSET
+// out along the wall normal. This is computed ONCE, at placement time.
+// The offset is never recalculated afterwards — that was the bug that
+// made the poster creep/jump forward when the phone moved a lot.
+function offsetPoseFromFlush(flushMatrix){
   const pos = new THREE.Vector3();
   const quat = new THREE.Quaternion();
   const scl = new THREE.Vector3();
-  src.decompose(pos, quat, scl);
-
-  // wall normal = local +Z of the pose, rotated to world space
+  flushMatrix.decompose(pos, quat, scl);
   const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(quat).normalize();
+  const out = pos.clone().addScaledVector(normal, WALL_OFFSET);
+  const m = new THREE.Matrix4();
+  m.compose(out, quat, new THREE.Vector3(1,1,1));
+  return m;
+}
 
-  // push the poster off the wall by a FIXED distance (does not scale)
-  const finalPos = pos.clone().addScaledVector(normal, WALL_OFFSET);
+// Apply a pose matrix + the current size scale to the poster.
+// poseMatrix is ALREADY the final pose (offset baked in). This function
+// only copies position/rotation and sets scale — it does NOT add any
+// offset and does NOT recalculate the normal. Scale is applied via
+// posterModel.scale (a THREE property) so it composes cleanly with the
+// model's internal centering offsets.
+function applyPoseToPoster(poseMatrix){
+  if (!posterModel) return;
+  const f = scaleForSize(currentSizeIndex);
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const scl = new THREE.Vector3();
+  poseMatrix.decompose(pos, quat, scl);
 
   posterModel.matrixAutoUpdate = true;
-  posterModel.position.copy(finalPos);
+  posterModel.position.copy(pos);
   posterModel.quaternion.copy(quat);
   posterModel.scale.set(f.x, f.y, f.z);
   posterModel.updateMatrix();
 }
 
 // ---- tap to place / move the poster ----
-// We don't place directly here: createAnchor needs an XRFrame. We capture
-// the wall pose now and let onXRFrame create the anchor next frame.
+// createAnchor needs an XRFrame, which the 'select' event doesn't carry.
+// So onSelect captures the OFFSET pose and onXRFrame creates the anchor.
 function onSelect(){
   DBG.push('TAP on screen. reticle.visible=' + reticle.visible);
   if (!reticle.visible) {
@@ -692,26 +695,28 @@ function onSelect(){
     posterModel = modelTemplate.clone(true);
     scene.add(posterModel);
   }
-  // reticle.matrix is the flush wall pose -> store it as the placed pose
-  placedPose.copy(reticle.matrix);
+  // reticle.matrix is the FLUSH wall pose. Bake the offset in ONCE here.
+  placedPose.copy(reticle.matrix);                 // flush pose (for size logic)
+  posterTargetPose.copy(offsetPoseFromFlush(reticle.matrix));  // offset pose
 
-  // capture the pose as an XRRigidTransform for anchor creation
+  // the anchor is created at the OFFSET pose, so ARCore tracks the exact
+  // point where the poster sits — no offset math happens after this.
   const pos = new THREE.Vector3();
   const quat = new THREE.Quaternion();
-  placedPose.decompose(pos, quat, new THREE.Vector3());
+  posterTargetPose.decompose(pos, quat, new THREE.Vector3());
   pendingPlacement = {
     position: { x: pos.x, y: pos.y, z: pos.z },
     orientation: { x: quat.x, y: quat.y, z: quat.z, w: quat.w }
   };
 
-  // show the poster immediately at the placed pose (anchor will take over)
-  updatePosterMatrix();
+  // show the poster immediately (anchor takes over within a frame or two)
+  applyPoseToPoster(posterTargetPose);
   posterPlaced = true;
   resetBtn.classList.remove('hidden');
   setStatus('Poster placed — tap elsewhere to move it');
   toast('Poster placed at real size');
   DBG.push('poster PLACED (' + SIZES[currentSizeIndex].label
-    + ') offset=' + (WALL_OFFSET*100).toFixed(1) + 'cm'
+    + ') offset=' + (WALL_OFFSET*100).toFixed(1) + 'cm baked in'
     + (anchorSupported ? ' — anchoring…' : ' — no anchor API'), 'ok');
 }
 
@@ -726,6 +731,9 @@ let _dbgFirstWallLogged = false;
 // smoothing constants (state vars declared near the top)
 const HOLD_MS = 600;            // keep last wall pose this long after a drop
 const SMOOTH = 0.35;            // 0..1 — higher = snappier, lower = smoother
+// if the anchor pose jumps more than this (m) in one frame, reject it —
+// ARCore occasionally glitches in cluttered rooms; we hold the last pose.
+const JUMP_LIMIT = 0.25;
 const _smPos = new THREE.Vector3();
 const _smQuat = new THREE.Quaternion();
 const _smScl = new THREE.Vector3();
@@ -754,13 +762,29 @@ function onXRFrame(timestamp, frame){
   }
 
   // ---- anchor: each frame, follow the ARCore-corrected pose ----
+  // The anchor was created at the OFFSET pose, so its pose IS already the
+  // poster's final pose. We copy it straight in — no normal recalculation,
+  // no offset re-addition. That double-application was what made the
+  // poster creep/jump forward when the phone moved. We also reject wild
+  // jumps: if the anchor pose leaps more than JUMP_LIMIT in one frame,
+  // we keep the previous pose (ARCore occasionally glitches in busy rooms).
   if (posterAnchor && posterModel){
     const aPose = frame.getPose(posterAnchor.anchorSpace, xrRefSpace);
     if (aPose){
       const m = new THREE.Matrix4().fromArray(aPose.transform.matrix);
-      // keep placedPose in sync so size changes use the corrected pose too
-      placedPose.copy(m);
-      updatePosterMatrix(m);
+      const newPos = new THREE.Vector3();
+      m.decompose(newPos, new THREE.Quaternion(), new THREE.Vector3());
+      const prevPos = new THREE.Vector3();
+      posterTargetPose.decompose(prevPos, new THREE.Quaternion(), new THREE.Vector3());
+      const jump = newPos.distanceTo(prevPos);
+      if (jump < JUMP_LIMIT){
+        posterTargetPose.copy(m);     // accept the corrected pose
+        applyPoseToPoster(m);
+      } else {
+        // anchor glitched — keep the last good pose, log it
+        DBG.push('anchor jump ' + (jump*100).toFixed(0)
+          + 'cm rejected — holding last pose', 'warn');
+      }
     }
   }
 

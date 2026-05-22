@@ -69,15 +69,24 @@ via posterModel.scale (propriedade do three.js) e o offset é aplicado uma
 **Tracking instável / pisca** — melhorado dentro do possível:
 
 - Suavização: mantém a última pose válida por 600 ms após uma falha
-  momentânea (em vez de sumir no primeiro frame ruim) e interpola suave,
-  então o reticle desliza em vez de piscar.
-- Hit-test pede preferência por planos (mais estável que pontos soltos).
+  momentânea e interpola suave, então o reticle desliza em vez de piscar.
 - Âncoras WebXR: ao fixar o quadro, é criada uma XRAnchor. O ARCore passa
   a gerenciar esse ponto e o reposiciona conforme refina o mapa do
-  ambiente — o quadro fica "cravado" na parede em vez de derivar. O
-  painel de LOG mostra "anchor created" quando funciona.
+  ambiente. O painel de LOG mostra "anchor created" quando funciona.
+- Anti-salto: se a âncora dá um pulo maior que 25 cm num único frame
+  (o ARCore às vezes "glitcha" em ambientes com muitos objetos), o
+  código rejeita esse frame e segura a última pose boa.
 
-O offset do quadro à parede é de 1 cm (parece pendurado encostado).
+**Corrigido — quadro pulava para frente.** O offset da parede estava
+sendo re-somado a cada frame (o loop ressincronizava a pose com a âncora
+e somava o offset de novo), acumulando ~1 cm por frame. Agora o offset é
+embutido UMA vez, na criação da âncora; o loop apenas copia a pose. O
+quadro fica estável a 1 cm da parede.
+
+**Nota sobre detecção:** uma tentativa anterior de filtrar o hit-test só
+por planos (entityTypes:plane) deixou a detecção MUITO mais lenta (~36 s
+contra ~13 s) em parede lisa. Revertido — o hit-test usa pontos de
+característica + planos, que aparecem bem antes.
 
 Limitação honesta: a dificuldade de achar parede à noite / em parede lisa
 é física do ARCore (precisa de contraste visual). O código suaviza o
